@@ -1,0 +1,12 @@
+# copia local del juego que usan las pruebas
+.game/
+
+# python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# varios
+.DS_Store
+*.log
