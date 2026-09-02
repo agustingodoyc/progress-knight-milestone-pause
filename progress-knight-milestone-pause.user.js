@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         Progress Knight - Pausa automática por hitos
 // @namespace    https://github.com/agustingodoyc
-// @version      3.5
-// @description  Pausa automática por hitos en Progress Knight con tick parcial exacto, ETA preciso y selección automática de Skill por Z mínimo en orden visual.
+// @version      3.6
+// @description  Pausa automática por hitos en Progress Knight con tick parcial exacto, ETA preciso y selección automática de Skill por el menor nivel que el juego te esté pidiendo en pantalla.
 // @author       Agustín
 // @match        https://ihtasham42.github.io/progress-knight/*
 // @run-at       document-idle
@@ -304,7 +304,32 @@
         return r ? (t - v) / r : null;
     }
 
-    function suggestedLevel(name) {
+    // Requisitos que el juego efectivamente te muestra. updateRequiredRows() pinta,
+    // por cada categoría, UNA sola fila: la del primer elemento todavía no
+    // completado ("Farmer: Beggar level 3/10"). Los de más abajo en la categoría
+    // existen en gameData pero no están en pantalla, y las categorías con candado
+    // propio (The Arcane Association, Dark magic) no muestran ninguna.
+    function visibleRequesters() {
+        const set = new Set();
+        const reqs = W.gameData.requirements;
+        const groups = [pageGlobal('jobCategories'), pageGlobal('skillCategories'), pageGlobal('itemCategories')];
+        for (const group of groups) {
+            if (!group) continue;
+            for (const catName in group) {
+                const catReq = reqs[catName];
+                if (catReq && !catReq.completed) continue;
+                for (const name of group[catName]) {
+                    const r = reqs[name];
+                    if (!r) continue;
+                    if (!r.completed) { set.add(name); break; }
+                }
+            }
+        }
+        return set;
+    }
+
+    // `visibles`: si se pasa un Set, solo cuentan los requisitos de esos elementos.
+    function suggestedLevel(name, visibles) {
         const g = W.gameData;
         const lvl = g.taskData[name]?.level ?? 0;
         let best = null, bestWhy = null;
@@ -312,6 +337,7 @@
 
         const reqs = g.requirements;
         for (const key in reqs) {
+            if (visibles && !visibles.has(key)) continue;
             const r = reqs[key];
             if (!r || !r.requirements) continue;
 
@@ -361,20 +387,21 @@
         return list;
     }
 
-    // Busca la Skill con el Z mínimo, resolviendo empates por orden de arriba hacia abajo.
-    // No filtra por desbloqueo: ni la skill candidata ni el elemento que la pide
-    // necesitan estar desbloqueados. Con el grafo de requisitos del juego eso casi
-    // nunca cambia el resultado —toda skill bloqueada la traba otra skill con un
-    // requisito pendiente más chico, que gana igual— pero deja la elección atada a
-    // los requisitos y no al estado de desbloqueo del momento.
+    // Elige la Skill con el menor nivel pendiente ENTRE LOS REQUISITOS QUE SE VEN
+    // en pantalla. Un requisito más chico pedido por algo que todavía no aparece
+    // (por ejemplo "Merchant pide Bargaining 50" cuando ni Farmer desbloqueaste)
+    // se ignora. La skill en sí no se filtra: puede estar bloqueada, lo que importa
+    // es que algo visible la esté pidiendo. Los empates los resuelve el orden
+    // visual, de arriba hacia abajo.
     function findNextSkillMilestoneTarget() {
         const skills = getAllSkillsInOrder();
+        const visibles = visibleRequesters();
         let bestCandidate = null;
         let minZ = Infinity;
 
         for (let i = 0; i < skills.length; i++) {
             const name = skills[i];
-            const s = suggestedLevel(name);
+            const s = suggestedLevel(name, visibles);
             const curLvl = W.gameData.taskData[name]?.level ?? 0;
 
             if (s.level !== null && s.level > curLvl) {

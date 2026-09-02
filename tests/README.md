@@ -37,6 +37,7 @@ por caso y un `TOTAL`.
 | `test_shop_niveles.py` | costo incremental de las Properties, nivel sugerido por requisitos |
 | `test_ui.py` | que un click alcance para borrar mientras el panel se repinta |
 | `test_desbloqueos.py` | desbloqueos a través del rebirth y la sub-opción de filtrado |
+| `test_skill_visible.py` | que la selección automática de Skill mire solo requisitos visibles en pantalla |
 
 ## Escribir una prueba nueva
 

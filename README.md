@@ -37,6 +37,15 @@ Los valores aceptan `1000000`, `1M`, `2.5k` o `1e6`. Cada fila muestra el progre
 ETA estimado; si el hito es de una tarea que no estás haciendo, el ETA dice
 *"si la activás"*, porque es una proyección con su xp/día actual y no una cuenta regresiva.
 
+### Qué propone al cumplir un hito
+
+Cuando se cumple un hito de skill, el panel deja precargado el siguiente: la skill con el
+menor nivel pendiente **entre los requisitos que el juego te está mostrando**. El juego pinta,
+por cada categoría, una sola fila de requisitos —la del primer elemento todavía no
+completado—, así que un requisito más chico pedido por algo que aún no aparece en pantalla
+(*"Merchant pide Bargaining 50"* cuando ni Farmer desbloqueaste) no cuenta. La skill en sí
+puede estar bloqueada: lo que importa es que algo visible la esté pidiendo.
+
 ### Costo real en el Shop
 
 `gameData.currentProperty` es una sola: comprar una property reemplaza a la anterior, y el
@@ -90,7 +99,7 @@ se los lleva.
 
 ## Pruebas
 
-81 pruebas end-to-end con Playwright sobre una copia local del juego: precisión del tick
+93 pruebas end-to-end con Playwright sobre una copia local del juego: precisión del tick
 parcial, umbrales del Shop, desbloqueos a través del rebirth, y comportamiento de la UI.
 
 ```bash
