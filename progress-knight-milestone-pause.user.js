@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Progress Knight - Pausa automática por hitos
 // @namespace    https://github.com/agustingodoyc
-// @version      3.3
+// @version      3.5
 // @description  Pausa automática por hitos en Progress Knight con tick parcial exacto, ETA preciso y selección automática de Skill por Z mínimo en orden visual.
 // @author       Agustín
 // @match        https://ihtasham42.github.io/progress-knight/*
@@ -361,7 +361,12 @@
         return list;
     }
 
-    // Busca la Skill desbloqueada con el Z mínimo, resolviendo empates por orden de arriba hacia abajo
+    // Busca la Skill con el Z mínimo, resolviendo empates por orden de arriba hacia abajo.
+    // No filtra por desbloqueo: ni la skill candidata ni el elemento que la pide
+    // necesitan estar desbloqueados. Con el grafo de requisitos del juego eso casi
+    // nunca cambia el resultado —toda skill bloqueada la traba otra skill con un
+    // requisito pendiente más chico, que gana igual— pero deja la elección atada a
+    // los requisitos y no al estado de desbloqueo del momento.
     function findNextSkillMilestoneTarget() {
         const skills = getAllSkillsInOrder();
         let bestCandidate = null;
@@ -369,8 +374,6 @@
 
         for (let i = 0; i < skills.length; i++) {
             const name = skills[i];
-            if (!isUnlocked(name)) continue;
-
             const s = suggestedLevel(name);
             const curLvl = W.gameData.taskData[name]?.level ?? 0;
 
