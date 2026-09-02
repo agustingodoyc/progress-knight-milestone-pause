@@ -1120,7 +1120,7 @@
             try { afterTick(); } catch (e) { }
         }, FALLBACK_POLL_MS);
 
-        console.log('[Hitos] listo (v3.3) · hooks:', hooksOk);
+        console.log('[Hitos] listo (v3.6) · hooks:', hooksOk);
     }
 
     boot();
