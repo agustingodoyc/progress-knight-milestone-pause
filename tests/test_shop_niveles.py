@@ -110,7 +110,7 @@ async def main():
         ck("Sugiere el menor requisito pendiente", v7 == "5", f"valor={v7!r} (Squire pide Strength 5)")
 
         # ---------- regresión: sigue pausando ----------
-        await fresh(pg, "gameData.currentProperty = gameData.itemData['Tent']; gameData.paused=false")
+        await fresh(pg, "gameData.currentProperty = gameData.itemData['Tent']; gameData.coins = 1e9; gameData.paused=false")
         await pg.select_option("#pkType","net"); await pg.select_option("#pkTarget","Wooden hut")
         await pg.fill("#pkValue",""); await pg.click("#pkAdd")
         pend = await pg.evaluate("gameData.paused")

@@ -4,6 +4,22 @@ Todo el desarrollo ocurrió en una sola sesión de trabajo, así que las version
 fecha. El salto de la 1.6 a la 3.2 es real: esa numeración vino de una tanda de cambios
 hecha aparte con Gemini (ver [docs/desarrollo.md](docs/desarrollo.md)).
 
+## 4.0
+
+- Bloque nuevo en el panel con dos cuentas que no son hitos: **cuánto falta para morir** y,
+  si el net está en rojo, **cuánto para que el saldo llegue a cero**.
+- La cuenta de muerte contempla que Immortality y Super immortality corren el final, y que
+  Time warping acelera los días, si son tu skill actual. Medido: subiendo Immortality, la
+  cuenta ingenua daba 44s contra los 60s reales.
+- La del saldo contempla que el ingreso sube con el nivel del job y que la skill actual puede
+  empujar la xp del job, el ingreso o los gastos. Si el ingreso alcanza al gasto antes de
+  vaciarte, lo dice en vez de dar una fecha falsa. Medido: ignorar la suba del job daba 4s
+  contra los 6,3s reales.
+- **Pausa antes de quedarte sin monedas**, opción nueva encendida por defecto. Frena con el
+  saldo justo en cero y no en rojo: apenas cruza, `applyExpenses()` llama a `goBankrupt()` y
+  te saca la property y los misc. Por eso ese tramo se acorta un pelo por debajo, al revés
+  que los hitos, que se pasan un épsilon por encima.
+
 ## 3.9
 
 - El ETA también tiene en cuenta la otra tarea activa. Solo las skills dan efectos de xp y

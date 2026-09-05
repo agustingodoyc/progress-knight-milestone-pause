@@ -69,6 +69,21 @@ y valen cero si ya los tenés.
 
 El margen opcional multiplica el umbral: `1` es justo, `1.5` deja 50% de colchón.
 
+## Muerte y saldo
+
+Arriba de la lista hay dos cuentas que no son hitos pero conviene tener a la vista: cuánto
+falta para morir —con los años que quedan— y, si el net está en rojo, cuánto para que el saldo
+llegue a cero.
+
+Las dos contemplan lo que cambia por el camino. La de muerte, que Immortality y Super
+immortality corren el final y que Time warping acelera los días. La del saldo, que el ingreso
+sube con el nivel del job; si el ingreso llega a alcanzar al gasto antes de vaciarte, lo dice
+en vez de dar una fecha falsa.
+
+**Pausar antes de quedarte sin monedas** (encendido por defecto) frena el juego con el saldo
+justo en cero. Importa que sea *antes*: apenas cruza a negativo, el juego llama a
+`goBankrupt()` y te saca la property y todos los misc.
+
 ## Pausado exacto
 
 Un tick del juego, con time warping alto, puede valer varios niveles. El script se engancha al
@@ -91,6 +106,7 @@ igual. El detalle de cómo está hecho está en [docs/como-funciona.md](docs/com
   re-bloquea todo salvo `permanentUnlocks`. El instante del renacer no dispara nada.
   - **ignorar los ya vistos en vidas anteriores** — filtra la recuperación post-rebirth
     contra una lista de todo lo desbloqueado alguna vez.
+- **Pausar antes de quedarte sin monedas** — ver arriba.
 - **Sonido al pausar** y **Notificación del navegador**. Con la pestaña en segundo plano el
   título parpadea hasta que volvés.
 
@@ -100,7 +116,7 @@ se los lleva.
 
 ## Pruebas
 
-111 pruebas end-to-end con Playwright sobre una copia local del juego: precisión del tick
+122 pruebas end-to-end con Playwright sobre una copia local del juego: precisión del tick
 parcial, umbrales del Shop, desbloqueos a través del rebirth, selección automática y
 comportamiento de la UI.
 

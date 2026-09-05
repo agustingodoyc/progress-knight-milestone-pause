@@ -96,6 +96,28 @@ frecuencias. En pausa no se muestrea, para que el ETA de las otras filas no se d
 Una tarea que no estás haciendo igual proyecta un ETA con su xp/día actual. Es un "si la
 pusieras ahora", así que se muestra como `~2m si la activás`.
 
+## Muerte y saldo en cero
+
+Dos cuentas que se muestran arriba de la lista y que se resuelven con la misma técnica que el
+ETA: saltar de level-up en level-up, que es donde cambian las tasas.
+
+`getLifespan()` depende de Immortality y de Super immortality, y la velocidad del juego de
+Time warping. Si alguna es tu skill actual, el final se corre mientras la subís, así que la
+cuenta de muerte se simula; si no, es una división. La sonda de siempre decide cuál de los dos
+caminos tomar.
+
+Para el saldo, el ingreso sube con el nivel del job (`getLevelMultiplier`) y la skill actual
+puede empujar la xp del job, el ingreso (Strength en militar, Demon's wealth) o los gastos
+(Bargaining e Intimidation abaratan los items), así que se avanzan las dos tareas a la vez
+recalculando el net en cada tramo. Si en algún punto el net se vuelve positivo, no vas a
+quebrar y se dice eso en lugar de una fecha.
+
+El freno antes de la quiebra usa el mismo tick parcial que los hitos, pero **al revés**: los
+hitos escalan el tick con un épsilon por encima para garantizar cruzar el umbral, y este lo
+escala un épsilon por debajo para garantizar NO cruzarlo. La diferencia importa porque
+`applyExpenses()` llama a `goBankrupt()` en cuanto las monedas quedan negativas, y eso te
+devuelve a Homeless y te vacía `currentMisc`.
+
 ## Costo real en el Shop
 
 El umbral es lo que te falta de verdad: el precio del producto menos todo lo que dejarías de

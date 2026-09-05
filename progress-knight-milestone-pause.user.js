@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Progress Knight - Pausa automática por hitos
 // @namespace    https://github.com/agustingodoyc
-// @version      3.9
+// @version      4.0
 // @description  Pausa automática por hitos en Progress Knight con tick parcial exacto, ETA preciso y selección automática de Skill por el menor nivel que el juego te esté pidiendo en pantalla.
 // @author       Agustín
 // @match        https://ihtasham42.github.io/progress-knight/*
@@ -30,6 +30,7 @@
         anyUnlock: false,
         ignoreSeen: false,
         precise: true,
+        pauseBroke: true,           // frenar justo antes de quedarte sin monedas
         everUnlocked: [],
         milestones: []
     };
@@ -412,6 +413,106 @@
         return ticks;
     }
 
+    // ¿El nivel de `otra` cambia lo que devuelve `fn`? Misma sonda que influyeEn,
+    // pero para magnitudes globales (la esperanza de vida, la velocidad del juego).
+    function influyeEnValor(otra, fn) {
+        if (!otra) return false;
+        const real = otra.level;
+        try {
+            const antes = fn();
+            otra.level = real + 1000;
+            return fn() !== antes;
+        } catch (e) {
+            return false;
+        } finally { otra.level = real; }
+    }
+
+    // Ticks que quedan de vida. getLifespan() depende de Immortality y de Super
+    // immortality, y la velocidad depende de Time warping: si alguna de esas es tu
+    // skill actual, el número se corre mientras la subís, así que se simula por
+    // level-ups. Si no, es una división.
+    function ticksHastaMorir() {
+        const g = W.gameData;
+        const skill = g.currentSkill;
+        const simple = () => {
+            const porTick = gameSpeed(true) / updateSpeed();
+            if (!(porTick > 0)) return null;
+            const faltan = W.getLifespan() - g.days;
+            return faltan <= 0 ? 0 : faltan / porTick;
+        };
+        if (!skill) return simple();
+        const importa = influyeEnValor(skill, () => W.getLifespan()) ||
+                        influyeEnValor(skill, () => gameSpeed(true));
+        if (!importa) return simple();
+
+        const nivelReal = skill.level;
+        let dias = g.days, LS = skill.level, XS = skill.xp, ticks = 0, saltos = 0;
+        try {
+            while (true) {
+                skill.level = LS;
+                const porTick = gameSpeed(true) / updateSpeed();
+                if (!(porTick > 0)) return null;
+                const vida = W.getLifespan();
+                if (dias >= vida) return ticks;
+                const hastaMorir = (vida - dias) / porTick;
+
+                const gS = skill.getXpGain() * porTick;
+                const hastaSubir = gS > 0 ? (maxXpAt(skill, LS) - XS) / gS : Infinity;
+
+                if (hastaSubir >= hastaMorir || ++saltos > MAX_SALTOS) return ticks + hastaMorir;
+                ticks += hastaSubir;
+                dias += hastaSubir * porTick;
+                LS++; XS = 0;
+            }
+        } finally { skill.level = nivelReal; }
+    }
+
+    // Ticks hasta que las monedas lleguen a cero, con el net actual en rojo. El
+    // ingreso sube con el nivel del job (getLevelMultiplier), y la skill actual
+    // puede empujar tanto la xp del job como el propio ingreso o los gastos
+    // (Bargaining abarata, Strength paga más en militar), así que se avanzan las dos
+    // saltando de level-up en level-up. Devuelve null si el net se recupera antes:
+    // en ese caso no vas a quebrar.
+    function ticksHastaSaldoCero() {
+        const g = W.gameData;
+        if (g.coins <= 0) return 0;
+        const job = g.currentJob, skill = g.currentSkill;
+        const nivelJob = job ? job.level : 0, nivelSkill = skill ? skill.level : 0;
+        let coins = g.coins, LJ = nivelJob, XJ = job ? job.xp : 0;
+        let LS = nivelSkill, XS = skill ? skill.xp : 0;
+        let ticks = 0, saltos = 0;
+        try {
+            while (true) {
+                if (job) job.level = LJ;
+                if (skill) skill.level = LS;
+                const porTick = gameSpeed(true) / updateSpeed();
+                if (!(porTick > 0)) return null;
+                const net = netPerDay();
+                if (net === null) return null;
+                if (net >= 0) return null;              // te recuperaste antes de quebrar
+
+                const hastaCero = coins / (-net * porTick);
+                const gJ = job ? job.getXpGain() * porTick : 0;
+                const gS = skill ? skill.getXpGain() * porTick : 0;
+                const subeJob = gJ > 0 ? (maxXpAt(job, LJ) - XJ) / gJ : Infinity;
+                const subeSkill = gS > 0 ? (maxXpAt(skill, LS) - XS) / gS : Infinity;
+                const proximo = Math.min(subeJob, subeSkill);
+
+                if (proximo >= hastaCero || ++saltos > MAX_SALTOS) return ticks + hastaCero;
+
+                ticks += proximo;
+                coins += net * porTick * proximo;
+                if (gJ > 0) XJ += gJ * proximo;
+                if (gS > 0) XS += gS * proximo;
+                if (subeJob <= proximo) { LJ++; XJ = 0; }
+                if (subeSkill <= proximo) { LS++; XS = 0; }
+            }
+        } finally {
+            if (job) job.level = nivelJob;
+            if (skill) skill.level = nivelSkill;
+        }
+    }
+
     function ticksToLevel(task, targetLevel, ignorePause) {
         if (task.level >= targetLevel) return 0;
         if (targetLevel - task.level > 10000) return null;
@@ -680,24 +781,53 @@
     }
 
     let scaledStreak = 0;
+    let frenoPorSaldo = false;   // este tick se acortó para no pasarse de cero
+    let avisoSaldo = false;      // ya se avisó por este bajón; se rearma al recuperarse
 
     function beforeTick() {
         tickScale = 1;
-        if (!state.precise || !gameReady() || W.gameData.paused) return;
+        frenoPorSaldo = false;
+        if (!gameReady() || W.gameData.paused) return;
 
-        if (scaledStreak > 20) { scaledStreak = 0; return; }
+        const porTick = gameSpeed(false) / updateSpeed();
+
+        // Cuánto falta para quedarse sin monedas, en ticks. Acá no se puede pasar de
+        // largo: apenas las monedas cruzan cero, applyExpenses() llama a goBankrupt()
+        // y te saca la property y los misc. Por eso este tramo se acorta un pelo POR
+        // DEBAJO en vez de por encima, al revés que los hitos.
+        let fSaldo = Infinity;
+        if (state.pauseBroke && porTick > 0) {
+            const net = netPerDay();
+            if (net !== null && net < 0 && W.gameData.coins > 0) {
+                fSaldo = W.gameData.coins / (-net * porTick);
+            }
+        }
 
         let f = 1;
-        for (let i = 0; i < state.milestones.length; i++) {
-            const m = state.milestones[i];
-            if (m.done) continue;
-            const fc = forecast(m, false);
-            if (!fc || !fc.active || fc.rate <= 0 || fc.remaining <= 0) continue;
-            const ticks = fc.remaining / fc.rate;
-            if (ticks < 1) f = Math.min(f, ticks);
+        if (state.precise && scaledStreak <= 20) {
+            for (let i = 0; i < state.milestones.length; i++) {
+                const m = state.milestones[i];
+                if (m.done) continue;
+                const fc = forecast(m, false);
+                if (!fc || !fc.active || fc.rate <= 0 || fc.remaining <= 0) continue;
+                const ticks = fc.remaining / fc.rate;
+                if (ticks < 1) f = Math.min(f, ticks);
+            }
+        } else if (scaledStreak > 20) { scaledStreak = 0; }
+
+        const escalaHito = (f > 0 && f < 1) ? f * (1 + 1e-9) : 1;
+        const escalaSaldo = (fSaldo > 0 && fSaldo < 1) ? fSaldo * (1 - 1e-9) : 1;
+
+        if (escalaSaldo < escalaHito) {
+            tickScale = escalaSaldo;
+            frenoPorSaldo = true;
+            scaledStreak = 0;
+        } else if (escalaHito < 1) {
+            tickScale = escalaHito;
+            scaledStreak++;
+        } else {
+            scaledStreak = 0;
         }
-        if (f > 0 && f < 1) { tickScale = f * (1 + 1e-9); scaledStreak++; }
-        else scaledStreak = 0;
     }
 
     function afterTick() {
@@ -722,6 +852,18 @@
             const list = state.ignoreSeen ? debut : fresh;
             if (list.length && state.anyUnlock) trigger('Nuevo desbloqueo: ' + list.join(', '));
         }
+
+        // Quedarse sin monedas: con el tick acortado se frena justo antes; si el
+        // pausado exacto está apagado, al menos se avisa al cruzar cero.
+        if (state.pauseBroke) {
+            const net = netPerDay();
+            if (frenoPorSaldo || (net !== null && net < 0 && W.gameData.coins <= 0)) {
+                if (!avisoSaldo) { avisoSaldo = true; trigger('Te quedaste sin monedas'); }
+            } else if (W.gameData.coins > 0 && (net === null || net >= 0)) {
+                avisoSaldo = false;
+            }
+        }
+        frenoPorSaldo = false;
 
         sampleRates();
 
@@ -895,6 +1037,12 @@
     }
     #pkHitos .hint { color: #8b939e; font-size: 11px; margin: 2px 0 8px; }
     #pkHitos .status { color: #6f7681; font-size: 10px; margin-top: 8px; text-align: right; }
+    #pkHitos .vitales {
+        margin-top: 10px; padding: 6px 8px; background: #1b1e22; border-radius: 4px;
+        color: #c9ced6; font-size: 11px; line-height: 1.5;
+    }
+    #pkHitos .vitales:empty { display: none; }
+    #pkHitos .vitales .rojo { color: #f0a05a; }
     `;
 
     let el = {};
@@ -953,8 +1101,10 @@
                 <label class="chk"><input type="checkbox" id="pkPrecise"> Pausado exacto (tick parcial)</label>
                 <label class="chk"><input type="checkbox" id="pkAnyUnlock"> Pausar ante cualquier desbloqueo nuevo</label>
                 <label class="chk sub"><input type="checkbox" id="pkIgnoreSeen"> ignorar los ya vistos en vidas anteriores</label>
+                <label class="chk"><input type="checkbox" id="pkBroke"> Pausar antes de quedarte sin monedas</label>
                 <label class="chk"><input type="checkbox" id="pkSound"> Sonido al pausar</label>
                 <label class="chk"><input type="checkbox" id="pkNotif"> Notificación del navegador</label>
+                <div class="vitales" id="pkVitals"></div>
                 <ul id="pkList"></ul>
                 <div class="status" id="pkStatus"></div>
             </div>
@@ -979,6 +1129,8 @@
             anyUnlock: box.querySelector('#pkAnyUnlock'),
             ignoreSeen: box.querySelector('#pkIgnoreSeen'),
             ignoreSeenRow: box.querySelector('#pkIgnoreSeen').parentElement,
+            broke: box.querySelector('#pkBroke'),
+            vitals: box.querySelector('#pkVitals'),
             sound: box.querySelector('#pkSound'),
             notif: box.querySelector('#pkNotif'),
             status: box.querySelector('#pkStatus')
@@ -1008,6 +1160,7 @@
         el.ignoreSeen.addEventListener('change', () => {
             state.ignoreSeen = el.ignoreSeen.checked; save();
         });
+        el.broke.addEventListener('change', () => { state.pauseBroke = el.broke.checked; save(); });
         el.sound.addEventListener('change', () => { state.sound = el.sound.checked; save(); });
         el.notif.addEventListener('change', () => {
             state.desktopNotif = el.notif.checked;
@@ -1023,6 +1176,7 @@
         el.anyUnlock.checked = state.anyUnlock;
         el.ignoreSeen.checked = state.ignoreSeen;
         syncUnlockRow();
+        el.broke.checked = state.pauseBroke;
         el.sound.checked = state.sound;
         el.notif.checked = state.desktopNotif;
 
@@ -1163,6 +1317,7 @@
         }
         el.count.textContent = pending;
         if (el.type.value === 'netval') syncFormHintOnly();
+        updateVitals();
 
         const sig = listSignature();
         if (force || sig !== listSig) { rebuildList(); listSig = sig; }
@@ -1228,6 +1383,29 @@
                 row.prog.style.display = pr ? 'block' : 'none';
             }
         }
+    }
+
+    // Dos cuentas que no son hitos pero conviene tener a la vista.
+    function updateVitals() {
+        if (!el.vitals) return;
+        const g = W.gameData;
+        const filas = [];
+        try {
+            const muerte = fmtEta(ticksHastaMorir());
+            if (muerte) {
+                const años = Math.max(0, W.daysToYears(W.getLifespan()) - W.daysToYears(g.days));
+                filas.push(`Muerte en ~${muerte} · quedan ${años} años`);
+            }
+            const net = netPerDay();
+            if (net !== null && net < 0) {
+                const cero = ticksHastaSaldoCero();
+                filas.push(cero === null
+                    ? `<span class="rojo">Net en rojo</span>, pero el ingreso lo alcanza antes de vaciarte`
+                    : `<span class="rojo">Saldo en cero en ~${fmtEta(cero)}</span>`);
+            }
+        } catch (e) { /* nunca romper el panel por esto */ }
+        const html = filas.map(t => `<div>${t}</div>`).join('');
+        if (el.vitals.innerHTML !== html) el.vitals.innerHTML = html;
     }
 
     function syncFormHintOnly() {
