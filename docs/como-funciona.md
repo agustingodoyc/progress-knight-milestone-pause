@@ -66,9 +66,22 @@ Dos caminos según el tipo de hito:
   deja el ETA largo de más: de nivel 100 a 300 en Concentration, la cuenta plana erraba 67% y
   la integrada erra 1%.
 
-  En vez de modelar cada caso se evalúa el `getXpGain()` real con el nivel hipotético —se pisa
-  `task.level`, se pregunta y se restaura en un `finally`—, así entran todas las dependencias
-  sin enumerarlas. Queda afuera lo que dependa de otra tarea subiendo en paralelo.
+  Y la otra tarea activa también empuja. Solo las skills dan efectos de xp —los jobs solo dan
+  ingreso— y solo hay una skill activa por vez, así que el único acople posible es un hito
+  sobre el job actual mientras la skill actual le sube la xp (Productivity, Meditation vía
+  felicidad, Battle tactics, Mana control, Dark influence, Demon training). Ahí se avanzan las
+  dos a la vez: entre level-ups las dos tasas son constantes, así que se salta de level-up en
+  level-up en vez de simular tick por tick, con un tope de saltos por si una sube muchísimo
+  más rápido que la otra. Con Beggar a nivel 60 mientras Productivity sube en paralelo,
+  congelar la skill erraba 75%; acoplado, 3%.
+
+  En vez de modelar cada caso se evalúa el `getXpGain()` real con los niveles hipotéticos —se
+  pisan los `.level`, se pregunta y se restauran en un `finally`—, así entran todas las
+  dependencias sin enumerarlas, y una sonda comprueba si la otra tarea influye en algo antes
+  de molestarse en acoplar.
+
+  Para una tarea que no estás haciendo no hay acople: el ETA es un "si la activás", y
+  activarla significa dejar de hacer la otra.
 - **Analítico** para monedas y edad: se conoce la fórmula, así que sale directo de cuánto
   falta sobre cuánto rinde el tick.
 - **Media móvil** para net/día: no tiene fórmula cerrada, sube a saltos cuando el job sube de

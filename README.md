@@ -39,9 +39,11 @@ estimado; si el hito es de una tarea que no estás haciendo, el ETA dice *"si la
 porque es una proyección con su xp/día actual y no una cuenta regresiva.
 
 Para los hitos de nivel el ETA se integra nivel por nivel, porque la xp/día cambia en el
-camino: hay skills que se potencian a sí mismas (Concentration se da "Skill xp" a sí misma,
-Meditation se acelera vía la felicidad). Medido de nivel 100 a 300 en Concentration, proyectar
-la tasa de ahora erraba 67%; integrando, 1%.
+camino por dos motivos: hay skills que se potencian a sí mismas (Concentration se da "Skill
+xp" a sí misma, Meditation se acelera vía la felicidad), y la skill que estés haciendo puede
+empujar la xp del job del hito. Medido contra el reloj: de nivel 100 a 300 en Concentration,
+proyectar la tasa de ahora erraba 67% y ahora erra 1%; con un hito de Beggar mientras
+Productivity sube al lado, congelarla erraba 75% y acoplada erra 3%.
 
 Al cumplirse un hito, el formulario queda precargado con el siguiente objetivo razonable: para
 skills, la que tenga el menor nivel pendiente **entre los requisitos que el juego te está
@@ -98,7 +100,7 @@ se los lleva.
 
 ## Pruebas
 
-109 pruebas end-to-end con Playwright sobre una copia local del juego: precisión del tick
+111 pruebas end-to-end con Playwright sobre una copia local del juego: precisión del tick
 parcial, umbrales del Shop, desbloqueos a través del rebirth, selección automática y
 comportamiento de la UI.
 

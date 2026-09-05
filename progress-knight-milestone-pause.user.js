@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Progress Knight - Pausa automática por hitos
 // @namespace    https://github.com/agustingodoyc
-// @version      3.8
+// @version      3.9
 // @description  Pausa automática por hitos en Progress Knight con tick parcial exacto, ETA preciso y selección automática de Skill por el menor nivel que el juego te esté pidiendo en pantalla.
 // @author       Agustín
 // @match        https://ihtasham42.github.io/progress-knight/*
@@ -325,40 +325,107 @@
         return (r && r.samples >= RATE_MIN_SAMPLES && r.rate > 0) ? r.rate : null;
     }
 
-    // Ticks hasta llegar a targetLevel teniendo en cuenta que la xp/día cambia con
-    // el nivel. Hay tareas que se potencian a sí mismas: addMultipliers() le mete a
-    // toda Skill el efecto de Concentration —Concentration incluida— y a toda tarea
-    // getHappiness, que depende de Meditation; Dark influence y Demon training dan
-    // "All xp" y también se alcanzan. Para esas, la tasa de ahora no vale para todo
-    // el tramo y el ETA salía largo de más.
+    // Ticks hasta llegar a targetLevel teniendo en cuenta que la xp/día cambia por
+    // el camino. Dos motivos, y los dos importan:
     //
-    // En vez de modelar cada caso, se evalúa el getXpGain() real con el nivel
-    // hipotético: se pisa task.level, se pregunta, y se restaura. Así entran todas
-    // las dependencias, incluidas las que pasan por otra fórmula. Es síncrono, nada
-    // corre en el medio, y el finally garantiza dejar el nivel como estaba.
+    // 1. La tarea se potencia a sí misma. addMultipliers() le mete a toda Skill el
+    //    efecto de Concentration —Concentration incluida— y a toda tarea
+    //    getHappiness, que depende de Meditation; Dark influence y Demon training
+    //    dan "All xp" y también se alcanzan.
+    // 2. La otra tarea activa la potencia. Solo las skills dan efectos de xp (los
+    //    jobs solo dan ingreso), y solo hay una skill activa por vez, así que el
+    //    único acople posible es: hito sobre el job actual mientras la skill actual
+    //    le empuja la xp (Productivity, Meditation vía felicidad, Battle tactics,
+    //    Mana control, Dark influence, Demon training).
     //
-    // Queda afuera lo que dependa de OTRA tarea subiendo en paralelo (por ejemplo un
-    // hito de job mientras tu skill actual es Meditation, que empuja la felicidad).
+    // En vez de modelar cada caso se evalúa el getXpGain() real con los niveles
+    // hipotéticos: se pisan los .level, se pregunta, y se restauran en un finally.
+    // Es síncrono, nada corre en el medio.
+    //
+    // Para una tarea que NO estás haciendo el ETA es un "si la activás", y activarla
+    // significa dejar de hacer la otra: ahí no se acopla nada.
+
+    // Integra una sola tarea, desde un nivel y una xp dados.
+    function ticksIntegrado(task, desdeNivel, desdeXp, target, porTick) {
+        const real = task.level;
+        let ticks = 0;
+        try {
+            for (let L = desdeNivel; L < target; L++) {
+                task.level = L;
+                const gain = task.getXpGain();
+                if (!(gain > 0)) return null;
+                const falta = maxXpAt(task, L) - (L === desdeNivel ? desdeXp : 0);
+                ticks += Math.max(falta, 0) / (gain * porTick);
+            }
+        } finally { task.level = real; }
+        return ticks;
+    }
+
+    // ¿El nivel de `otra` cambia en algo la xp/día de `task`? Se pregunta en vez de
+    // enumerar qué potencia a qué.
+    function influyeEn(task, otra) {
+        const real = otra.level;
+        try {
+            const antes = task.getXpGain();
+            otra.level = real + 1000;
+            return task.getXpGain() !== antes;
+        } catch (e) {
+            return false;
+        } finally { otra.level = real; }
+    }
+
+    // Avanza las dos tareas a la vez. Entre level-ups las dos tasas son constantes,
+    // así que se salta de level-up en level-up en vez de simular tick por tick.
+    const MAX_SALTOS = 20000;
+
+    function ticksAcoplado(task, target, otra, porTick) {
+        const nivelTask = task.level, nivelOtra = otra.level;
+        let LT = task.level, XT = task.xp, LO = otra.level, XO = otra.xp;
+        let ticks = 0, saltos = 0;
+        try {
+            while (LT < target) {
+                task.level = LT; otra.level = LO;
+                const gT = task.getXpGain() * porTick;
+                const gO = otra.getXpGain() * porTick;
+                if (!(gT > 0)) return null;
+
+                if (++saltos > MAX_SALTOS) {
+                    // La otra sube tantísimo más rápido que no vale la pena seguir
+                    // saltando: se congela donde llegó y se integra el resto.
+                    const resto = ticksIntegrado(task, LT, XT, target, porTick);
+                    return resto === null ? null : ticks + resto;
+                }
+
+                const topeT = maxXpAt(task, LT);
+                let dt = (topeT - XT) / gT;
+                const topeO = maxXpAt(otra, LO);
+                if (gO > 0) dt = Math.min(dt, (topeO - XO) / gO);
+                if (!(dt > 0)) dt = 0;
+
+                ticks += dt;
+                XT += gT * dt;
+                XO += gO * dt;
+                if (XT >= topeT * (1 - 1e-12)) { LT++; XT = 0; }
+                if (gO > 0 && XO >= topeO * (1 - 1e-12)) { LO++; XO = 0; }
+            }
+        } finally { task.level = nivelTask; otra.level = nivelOtra; }
+        return ticks;
+    }
+
     function ticksToLevel(task, targetLevel, ignorePause) {
         if (task.level >= targetLevel) return 0;
         if (targetLevel - task.level > 10000) return null;
         const porTick = gameSpeed(ignorePause) / updateSpeed();
         if (!(porTick > 0)) return null;
 
-        const nivelReal = task.level;
-        let ticks = 0;
-        try {
-            for (let L = nivelReal; L < targetLevel; L++) {
-                task.level = L;
-                const gain = task.getXpGain();
-                if (!(gain > 0)) return null;
-                const falta = maxXpAt(task, L) - (L === nivelReal ? task.xp : 0);
-                ticks += Math.max(falta, 0) / (gain * porTick);
-            }
-        } finally {
-            task.level = nivelReal;
+        const g = W.gameData;
+        // Solo el job actual puede estar acoplado, y solo con la skill actual.
+        const otra = (g.currentJob && g.currentJob.name === task.name) ? g.currentSkill : null;
+        if (otra && otra.name !== task.name && influyeEn(task, otra)) {
+            const r = ticksAcoplado(task, targetLevel, otra, porTick);
+            if (r !== null) return r;
         }
-        return ticks;
+        return ticksIntegrado(task, task.level, task.xp, targetLevel, porTick);
     }
 
     function ticksLeft(m) {

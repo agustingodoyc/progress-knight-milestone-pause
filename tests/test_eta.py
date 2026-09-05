@@ -38,6 +38,25 @@ PLANA = """(skill, target) => {
     return falta / porTick / updateSpeed;   // en segundos
 }"""
 
+# Estimación congelando la otra tarea: integra la del hito nivel por nivel pero da
+# por sentado que la skill actual se queda quieta.
+CONGELADA = """(nombre, target) => {
+    const t = gameData.taskData[nombre];
+    const maxXpAt = (task, L) => Math.round(task.baseData.maxXp * (L + 1) * Math.pow(1.01, L));
+    const porTick = getGameSpeed() / updateSpeed;
+    const real = t.level;
+    let ticks = 0;
+    try {
+      for (let L = real; L < target; L++) {
+        t.level = L;
+        const falta = maxXpAt(t, L) - (L === real ? t.xp : 0);
+        ticks += falta / (t.getXpGain() * porTick);
+      }
+    } finally { t.level = real; }
+    return ticks / updateSpeed;   // en segundos
+}"""
+
+
 async def correr(pg, skill, nivel_inicial, target, multiplicador):
     """Prepara, lee la predicción, corre de verdad y devuelve (predicho, plano, real) en s."""
     await pg.evaluate("localStorage.clear()")
@@ -123,6 +142,43 @@ async def main():
            'e+' not in fila and '>999d' in fila, fila[:70])
         ck("integrar miles de niveles no frena el juego", con > libre * 0.9,
            f"{libre:.1f} vs {con:.1f} días/s")
+
+        # --- un job cuya skill actual le empuja la xp en paralelo -------------
+        await pg.evaluate("localStorage.clear()")
+        await pg.reload()
+        await pg.wait_for_function("window.gameData && Object.keys(gameData.taskData).length>0")
+        await pg.evaluate(SCRIPT)
+        await pg.wait_for_selector("#pkHitos")
+        # Productivity da "Job xp": mientras sube, la xp/día de Beggar sube con ella
+        await pg.evaluate("""
+            gameData.paused = true;
+            gameData.currentJob = gameData.taskData['Beggar'];
+            gameData.currentSkill = gameData.taskData['Productivity'];
+            gameData.taskData['Beggar'].level = 0; gameData.taskData['Beggar'].xp = 0;
+            gameData.taskData['Productivity'].level = 0; gameData.taskData['Productivity'].xp = 0;
+            gameData.taskData['Beggar'].xpMultipliers.push(() => 200);
+            gameData.taskData['Productivity'].xpMultipliers.push(() => 3000);
+        """)
+        await pg.select_option("#pkType", "job")
+        await pg.select_option("#pkTarget", "Beggar")
+        await pg.select_option("#pkField", "level")
+        await pg.fill("#pkValue", "60")
+        await pg.click("#pkAdd")
+        await pg.wait_for_timeout(350)
+        await pg.evaluate("gameData.paused = false")
+        fila = await pg.evaluate("document.querySelector('#pkList li').innerText.replace(/\\n/g, ' ')")
+        pred3 = eta_segundos(fila)
+        congelada = await pg.evaluate(f"({CONGELADA})('Beggar', 60)")
+        await pg.evaluate("window.__d0 = gameData.days; window.__v = getGameSpeed() / updateSpeed")
+        await pg.wait_for_function("gameData.paused === true", timeout=90000)
+        real3 = await pg.evaluate("((gameData.days - window.__d0) / window.__v) / updateSpeed")
+        prod = await pg.evaluate("gameData.taskData['Productivity'].level")
+        err3 = abs(pred3 - real3) / real3
+        errc = abs(congelada - real3) / real3
+        ck("job acoplado: la predicción le pega al tiempo real", err3 < 0.15,
+           f"predicho {pred3:.0f}s vs real {real3:.0f}s → {err3*100:.0f}% (Productivity llegó a {prod})")
+        ck("congelar la skill actual se quedaba largo", errc > 0.35,
+           f"congelada {congelada:.0f}s vs real {real3:.0f}s → {errc*100:.0f}%")
 
         await b.close()
     _pk.report(R, errs)

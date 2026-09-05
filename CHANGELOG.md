@@ -4,6 +4,18 @@ Todo el desarrollo ocurrió en una sola sesión de trabajo, así que las version
 fecha. El salto de la 1.6 a la 3.2 es real: esa numeración vino de una tanda de cambios
 hecha aparte con Gemini (ver [docs/desarrollo.md](docs/desarrollo.md)).
 
+## 3.9
+
+- El ETA también tiene en cuenta la otra tarea activa. Solo las skills dan efectos de xp y
+  solo hay una activa por vez, así que el único acople posible es un hito sobre el job actual
+  mientras la skill actual le empuja la xp: Productivity, Meditation (vía felicidad), Battle
+  tactics, Mana control, Dark influence o Demon training. Las dos tareas se avanzan a la vez,
+  saltando de level-up en level-up en lugar de simular tick por tick.
+- Medido con Beggar a nivel 60 mientras Productivity sube en paralelo: congelando la skill la
+  predicción erraba 75%; acoplada, 3%.
+- Para una tarea que no estás haciendo no hay acople: el ETA es un "si la activás", y
+  activarla significa dejar de hacer la otra.
+
 ## 3.8
 
 - El ETA de un hito de nivel se integra nivel por nivel en vez de proyectar la xp/día actual
