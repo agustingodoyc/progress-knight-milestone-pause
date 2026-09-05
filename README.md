@@ -38,6 +38,11 @@ Los valores aceptan `1000000`, `1M`, `2.5k` o `1e6`. Cada fila muestra el progre
 estimado; si el hito es de una tarea que no estás haciendo, el ETA dice *"si la activás"*,
 porque es una proyección con su xp/día actual y no una cuenta regresiva.
 
+Para los hitos de nivel el ETA se integra nivel por nivel, porque la xp/día cambia en el
+camino: hay skills que se potencian a sí mismas (Concentration se da "Skill xp" a sí misma,
+Meditation se acelera vía la felicidad). Medido de nivel 100 a 300 en Concentration, proyectar
+la tasa de ahora erraba 67%; integrando, 1%.
+
 Al cumplirse un hito, el formulario queda precargado con el siguiente objetivo razonable: para
 skills, la que tenga el menor nivel pendiente **entre los requisitos que el juego te está
 mostrando**; para jobs, el más barato en nivel 0; para el Shop, el producto más barato que
@@ -93,7 +98,7 @@ se los lleva.
 
 ## Pruebas
 
-102 pruebas end-to-end con Playwright sobre una copia local del juego: precisión del tick
+109 pruebas end-to-end con Playwright sobre una copia local del juego: precisión del tick
 parcial, umbrales del Shop, desbloqueos a través del rebirth, selección automática y
 comportamiento de la UI.
 

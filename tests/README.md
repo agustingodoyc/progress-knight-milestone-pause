@@ -36,6 +36,7 @@ por caso y un `TOTAL`.
 | `test_precision.py` | tick parcial: nivel, monedas y edad exactos, contra el mismo escenario sin él |
 | `test_shop_niveles.py` | costo incremental de las Properties, nivel sugerido por requisitos |
 | `test_shop_boosts.py` | descuento de los boosts puntuales activos en el umbral del Shop |
+| `test_eta.py` | la predicción de tiempo contra lo que tarda de verdad, medido en ticks |
 | `test_ui.py` | que un click alcance para borrar mientras el panel se repinta |
 | `test_desbloqueos.py` | desbloqueos a través del rebirth y la sub-opción de filtrado |
 | `test_skill_visible.py` | que la selección automática de Skill mire solo requisitos visibles en pantalla |

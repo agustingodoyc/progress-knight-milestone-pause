@@ -59,8 +59,18 @@ y no hace falta escalar nada.
 
 Dos caminos según el tipo de hito:
 
-- **Analítico** para niveles, monedas y edad: se conoce la fórmula, así que sale directo de
-  cuánto falta sobre cuánto rinde el tick.
+- **Integrado nivel por nivel** para los hitos de nivel. La xp/día no es constante a lo largo
+  del tramo: `addMultipliers()` le mete a toda Skill el efecto de Concentration —Concentration
+  incluida—, a toda tarea `getHappiness`, que depende de Meditation, y Dark influence y Demon
+  training dan "All xp" y se alcanzan a sí mismas. Proyectar la tasa de ahora hasta el final
+  deja el ETA largo de más: de nivel 100 a 300 en Concentration, la cuenta plana erraba 67% y
+  la integrada erra 1%.
+
+  En vez de modelar cada caso se evalúa el `getXpGain()` real con el nivel hipotético —se pisa
+  `task.level`, se pregunta y se restaura en un `finally`—, así entran todas las dependencias
+  sin enumerarlas. Queda afuera lo que dependa de otra tarea subiendo en paralelo.
+- **Analítico** para monedas y edad: se conoce la fórmula, así que sale directo de cuánto
+  falta sobre cuánto rinde el tick.
 - **Media móvil** para net/día: no tiene fórmula cerrada, sube a saltos cuando el job sube de
   nivel. Se mide la pendiente real con alpha 0,05 (unos 20 ticks de memoria) y no se muestra
   nada hasta tener 20 muestras. Sin ese suavizado el número saltaba 199% entre lecturas; con

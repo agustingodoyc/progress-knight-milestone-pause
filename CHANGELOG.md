@@ -4,6 +4,16 @@ Todo el desarrollo ocurrió en una sola sesión de trabajo, así que las version
 fecha. El salto de la 1.6 a la 3.2 es real: esa numeración vino de una tanda de cambios
 hecha aparte con Gemini (ver [docs/desarrollo.md](docs/desarrollo.md)).
 
+## 3.8
+
+- El ETA de un hito de nivel se integra nivel por nivel en vez de proyectar la xp/día actual
+  sobre todo el tramo. Importa para las tareas que se potencian a sí mismas: cada Skill lleva
+  el efecto de Concentration —Concentration incluida—, todas llevan `getHappiness`, que
+  depende de Meditation, y Dark influence y Demon training dan "All xp". Medido sobre
+  Concentration de nivel 100 a 300: la predicción pasó de errar 67% a errar 1%.
+- El ETA de un objetivo inalcanzable se muestra como `>999d` en vez de en notación
+  exponencial.
+
 ## 3.7
 
 - El umbral de un producto del Shop descuenta los **boosts puntuales activos** que darías de

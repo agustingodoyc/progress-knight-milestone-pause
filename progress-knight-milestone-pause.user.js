@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Progress Knight - Pausa automática por hitos
 // @namespace    https://github.com/agustingodoyc
-// @version      3.7
+// @version      3.8
 // @description  Pausa automática por hitos en Progress Knight con tick parcial exacto, ETA preciso y selección automática de Skill por el menor nivel que el juego te esté pidiendo en pantalla.
 // @author       Agustín
 // @match        https://ihtasham42.github.io/progress-knight/*
@@ -218,7 +218,10 @@
         if (s < 60) return Math.round(s) + 's';
         if (s < 3600) return Math.floor(s / 60) + 'm ' + Math.round(s % 60) + 's';
         if (s < 86400) return Math.floor(s / 3600) + 'h ' + Math.round((s % 3600) / 60) + 'm';
-        return Math.round(s / 86400) + 'd';
+        const dias = s / 86400;
+        // Con objetivos absurdos la cuenta se va a 1e38 y salía en notación
+        // exponencial; a partir de acá el número exacto no le sirve a nadie.
+        return dias > 999 ? '>999d' : Math.round(dias) + 'd';
     }
 
     function maxXpAt(task, level) {
@@ -322,7 +325,51 @@
         return (r && r.samples >= RATE_MIN_SAMPLES && r.rate > 0) ? r.rate : null;
     }
 
+    // Ticks hasta llegar a targetLevel teniendo en cuenta que la xp/día cambia con
+    // el nivel. Hay tareas que se potencian a sí mismas: addMultipliers() le mete a
+    // toda Skill el efecto de Concentration —Concentration incluida— y a toda tarea
+    // getHappiness, que depende de Meditation; Dark influence y Demon training dan
+    // "All xp" y también se alcanzan. Para esas, la tasa de ahora no vale para todo
+    // el tramo y el ETA salía largo de más.
+    //
+    // En vez de modelar cada caso, se evalúa el getXpGain() real con el nivel
+    // hipotético: se pisa task.level, se pregunta, y se restaura. Así entran todas
+    // las dependencias, incluidas las que pasan por otra fórmula. Es síncrono, nada
+    // corre en el medio, y el finally garantiza dejar el nivel como estaba.
+    //
+    // Queda afuera lo que dependa de OTRA tarea subiendo en paralelo (por ejemplo un
+    // hito de job mientras tu skill actual es Meditation, que empuja la felicidad).
+    function ticksToLevel(task, targetLevel, ignorePause) {
+        if (task.level >= targetLevel) return 0;
+        if (targetLevel - task.level > 10000) return null;
+        const porTick = gameSpeed(ignorePause) / updateSpeed();
+        if (!(porTick > 0)) return null;
+
+        const nivelReal = task.level;
+        let ticks = 0;
+        try {
+            for (let L = nivelReal; L < targetLevel; L++) {
+                task.level = L;
+                const gain = task.getXpGain();
+                if (!(gain > 0)) return null;
+                const falta = maxXpAt(task, L) - (L === nivelReal ? task.xp : 0);
+                ticks += Math.max(falta, 0) / (gain * porTick);
+            }
+        } finally {
+            task.level = nivelReal;
+        }
+        return ticks;
+    }
+
     function ticksLeft(m) {
+        // Los hitos de nivel llevan la cuenta integrada; el resto, la tasa plana.
+        if ((m.type === 'job' || m.type === 'skill') && m.field !== 'maxLevel') {
+            const t = W.gameData.taskData[m.target];
+            if (t) {
+                try { return ticksToLevel(t, m.value, true); }
+                catch (e) { console.warn('[Hitos] ticksToLevel:', e); }
+            }
+        }
         const f = forecast(m, true);
         if (f) {
             if (f.remaining <= 0) return 0;
