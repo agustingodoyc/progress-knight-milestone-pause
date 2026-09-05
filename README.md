@@ -45,11 +45,20 @@ todavía no te bancás.
 
 ### Costo real en el Shop
 
-`gameData.currentProperty` es una sola: comprar una property reemplaza a la anterior, y el
-net/día ya viene con el gasto de la actual descontado. Por eso el umbral de una Property es
-la **diferencia** contra la que tenés puesta — con una Cottage, "Large house" pide 24,3k y no
-25k — que es lo mismo que pedir que el net **después** de comprarla siga siendo positivo.
-Los Misc, que se acumulan, van al precio entero, y a cero si ya los tenés.
+El umbral no es el precio de lista, sino lo que te falta de verdad: se descuenta todo lo que
+dejarías de pagar.
+
+- **La Property actual.** `gameData.currentProperty` es una sola, comprar otra reemplaza la
+  anterior, y el net/día ya viene con ese gasto descontado.
+- **Los boosts puntuales que tengas activos.** Dumbbells (Strength xp), Steel longsword
+  (Military xp) y Sapphire charm (Magic xp) potencian una rama concreta y los apagás cuando
+  cambiás de foco. Los que sirven hagas lo que hagas —Book, Study desk y Library (Skill xp),
+  Personal squire (Job xp) y Butler (Happiness)— no se descuentan.
+
+Con una Tent y unas Dumbbells puestas, "Wooden hut" pide 35 y no 100: `100 − 15 − 50`. El
+panel muestra la cuenta hecha. Es lo mismo que pedir que el net **después** de comprarlo y
+apagar esos boosts siga siendo positivo. Los Misc, que se acumulan, no descuentan la Property,
+y valen cero si ya los tenés.
 
 El margen opcional multiplica el umbral: `1` es justo, `1.5` deja 50% de colchón.
 
@@ -84,7 +93,7 @@ se los lleva.
 
 ## Pruebas
 
-93 pruebas end-to-end con Playwright sobre una copia local del juego: precisión del tick
+102 pruebas end-to-end con Playwright sobre una copia local del juego: precisión del tick
 parcial, umbrales del Shop, desbloqueos a través del rebirth, selección automática y
 comportamiento de la UI.
 

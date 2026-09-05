@@ -75,12 +75,25 @@ pusieras ahora", así que se muestra como `~2m si la activás`.
 
 ## Costo real en el Shop
 
-`gameData.currentProperty` es una sola: comprar una property reemplaza la anterior, y el
-net/día ya viene con el gasto de la actual descontado. Por eso el umbral de una Property es
-la **diferencia**, que es lo mismo que pedir que el net *después* de comprarla siga siendo
-positivo. Los Misc se acumulan (`currentMisc` es un array), así que van al precio entero, y a
-cero si ya los tenés. El umbral se recalcula en cada tick, de modo que acompaña los descuentos
-de Bargaining e Intimidation.
+El umbral es lo que te falta de verdad: el precio del producto menos todo lo que dejarías de
+pagar al comprarlo.
+
+`gameData.currentProperty` es una sola, así que comprar otra reemplaza la anterior y su gasto
+se descuenta —y el net/día ya viene con él restado—. Los Misc se acumulan (`currentMisc` es un
+array), así que ahí no hay reemplazo: van al precio entero, y a cero si ya los tenés.
+
+Además se descuentan los **boosts puntuales activos**, los que potencian una rama concreta y
+uno apaga al cambiar de foco. El juego no los marca como tales, pero los describe: en
+`itemBaseData`, Dumbbells dice "Strength xp", Steel longsword "Military xp" y Sapphire charm
+"Magic xp", mientras que los que sirven siempre dicen "Skill xp", "Job xp" o "Happiness". El
+script trata como puntual cualquier descripción fuera de esas tres, así que un item nuevo de
+rama específica entra solo.
+
+Con Tent y Dumbbells puestos, "Wooden hut" pide `100 − 15 − 50 = 35`. La cuenta se muestra
+armada en la fila del hito.
+
+El umbral se recalcula en cada tick, así que acompaña los descuentos de Bargaining e
+Intimidation y cualquier cambio en lo que tengas equipado.
 
 ## Desbloqueos y renacer
 
@@ -132,4 +145,8 @@ se los lleva.
 - `getNet()` devuelve el valor **absoluto** de ingreso menos gastos; el signo se muestra
   aparte. Para saber si estás en verde hay que restar a mano.
 - Los items no tienen categoría marcada en su `baseData`: las Properties se distinguen porque
-  no traen `description` y los Misc sí.
+  no traen `description` y los Misc sí. Esa misma `description` es lo único que separa un boost
+  de rama específica de uno que sirve siempre.
+- `goBankrupt()` no es solo un cartel: cuando las monedas llegan a cero con el net en rojo, el
+  juego te devuelve a Homeless y te vacía `currentMisc`. Cualquier escenario con gastos
+  mayores al ingreso se desarma solo si no hay monedas suficientes para sostenerlo.

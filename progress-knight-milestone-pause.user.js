@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Progress Knight - Pausa automática por hitos
 // @namespace    https://github.com/agustingodoyc
-// @version      3.6
+// @version      3.7
 // @description  Pausa automática por hitos en Progress Knight con tick parcial exacto, ETA preciso y selección automática de Skill por el menor nivel que el juego te esté pidiendo en pantalla.
 // @author       Agustín
 // @match        https://ihtasham42.github.io/progress-knight/*
@@ -132,16 +132,47 @@
         return !(!it?.baseData || ('description' in it.baseData));
     }
 
+    // Los Misc que potencian una rama concreta no se tienen prendidos siempre: al
+    // comprar otra cosa los apagás. Los que sirven hagas lo que hagas, no.
+    // El juego no marca la diferencia, pero la describe: itemBaseData trae
+    // "Strength xp", "Military xp", "Magic xp" para los puntuales, y "Skill xp",
+    // "Job xp" o "Happiness" para los que valen siempre. Cualquier descripción
+    // nueva se considera puntual, que es el caso más común.
+    const BOOSTS_PERMANENTES = ['Skill xp', 'Job xp', 'Happiness'];
+
+    function esMiscPuntual(name) {
+        if (isPropertyName(name)) return false;
+        const it = W.gameData?.itemData?.[name];
+        const d = it?.baseData?.description;
+        return !!d && !BOOSTS_PERMANENTES.includes(d);
+    }
+
+    // Gasto diario de los boosts puntuales que tenés activos y darías de baja.
+    function miscDescartables(excludeName) {
+        const activos = W.gameData?.currentMisc || [];
+        let total = 0;
+        const names = [];
+        for (const it of activos) {
+            if (!it?.name || it.name === excludeName || !esMiscPuntual(it.name)) continue;
+            total += typeof it.getExpense === 'function' ? it.getExpense() : 0;
+            names.push(it.name);
+        }
+        return { total, names };
+    }
+
     function shopCost(name) {
         const g = W.gameData;
         const cost = itemExpense(name);
         if (cost === null) return null;
+        const drop = miscDescartables(name);
         if (isPropertyName(name)) {
             const cur = typeof g.currentProperty?.getExpense === 'function' ? g.currentProperty.getExpense() : 0;
-            return { delta: cost - cur, cost, current: cur, currentName: g.currentProperty?.name ?? null, property: true };
+            return { delta: cost - cur - drop.total, cost, current: cur,
+                     currentName: g.currentProperty?.name ?? null, property: true, dropped: drop };
         }
         const owned = (g.currentMisc || []).some(x => x?.name === name);
-        return { delta: owned ? 0 : cost, cost, current: 0, currentName: null, property: false, owned };
+        return { delta: owned ? 0 : cost - drop.total, cost, current: 0, currentName: null,
+                 property: false, owned, dropped: drop };
     }
 
     function isUnlocked(name) {
@@ -482,8 +513,14 @@
         let txt = `${fmt(v)} / ${fmt(t)}`;
         if (m.type === 'net') {
             const c = shopCost(m.target);
-            if (c?.property && c.current > 0) txt += ` (${fmt(c.cost)}−${fmt(c.current)} de ${c.currentName})`;
-            else if (c?.owned) txt += ' (ya lo tenés)';
+            if (c?.owned) {
+                txt += ' (ya lo tenés)';
+            } else if (c) {
+                const partes = [];
+                if (c.property && c.current > 0) partes.push(`−${fmt(c.current)} de ${c.currentName}`);
+                if (c.dropped?.total > 0) partes.push(`−${fmt(c.dropped.total)} de ${c.dropped.names.join(', ')}`);
+                if (partes.length) txt += ` (${fmt(c.cost)} ${partes.join(' ')})`;
+            }
         }
         if (!m.done) {
             const eta = fmtEta(ticksLeft(m));
@@ -926,7 +963,7 @@
             age:   'Se compara contra la edad en años de la sidebar.',
             evil:  'El evil solo sube al renacer (rebirth 2), así que no lleva ETA.',
             netval:'Ingreso menos gastos por día. Ahora estás en ' + fmt(netPerDay()) + '.',
-            net:   'Pausa cuando podés bancar ese producto. En Properties cuenta solo la diferencia contra la que ya tenés (comprarla reemplaza la vieja); en Misc, el precio entero. Margen opcional: 1 = justo, 1.5 = 50% de colchón.',
+            net:   'Pausa cuando podés bancar ese producto. Se descuenta lo que dejarías de pagar: la Property actual (comprar otra la reemplaza) y los boosts puntuales que tengas activos —Dumbbells, Steel longsword, Sapphire charm— que apagarías. Los que sirven siempre (Book, Study desk, Library, Personal squire, Butler) no se descuentan. Margen opcional: 1 = justo, 1.5 = 50% de colchón.',
             unlock:'Pausa la primera vez que ese elemento queda desbloqueado.'
         };
         el.hint.textContent = hints[type] || '';
@@ -1120,7 +1157,7 @@
             try { afterTick(); } catch (e) { }
         }, FALLBACK_POLL_MS);
 
-        console.log('[Hitos] listo (v3.6) · hooks:', hooksOk);
+        console.log('[Hitos] listo · hooks:', hooksOk);
     }
 
     boot();

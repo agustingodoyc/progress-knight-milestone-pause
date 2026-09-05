@@ -4,6 +4,16 @@ Todo el desarrollo ocurrió en una sola sesión de trabajo, así que las version
 fecha. El salto de la 1.6 a la 3.2 es real: esa numeración vino de una tanda de cambios
 hecha aparte con Gemini (ver [docs/desarrollo.md](docs/desarrollo.md)).
 
+## 3.7
+
+- El umbral de un producto del Shop descuenta los **boosts puntuales activos** que darías de
+  baja al comprarlo: Dumbbells, Steel longsword y Sapphire charm. Con una Tent y unas
+  Dumbbells puestas, "Wooden hut" pide 35 en vez de 100. Los boosts que sirven siempre (Book,
+  Study desk, Library, Personal squire, Butler) se conservan y no se descuentan.
+- La fila del hito muestra la cuenta armada: `(100 −15 de Tent −50 de Dumbbells)`.
+- El log de arranque deja de repetir el número de versión, que había quedado en v3.3 mientras
+  el `@version` iba por 3.6.
+
 ## 3.6
 
 - La selección automática de Skill mira **solo los requisitos que el juego muestra en

@@ -35,6 +35,7 @@ por caso y un `TOTAL`.
 | `test_tipos.py` | jobs y skills separados, agrupación por categoría, net vs producto |
 | `test_precision.py` | tick parcial: nivel, monedas y edad exactos, contra el mismo escenario sin él |
 | `test_shop_niveles.py` | costo incremental de las Properties, nivel sugerido por requisitos |
+| `test_shop_boosts.py` | descuento de los boosts puntuales activos en el umbral del Shop |
 | `test_ui.py` | que un click alcance para borrar mientras el panel se repinta |
 | `test_desbloqueos.py` | desbloqueos a través del rebirth y la sub-opción de filtrado |
 | `test_skill_visible.py` | que la selección automática de Skill mire solo requisitos visibles en pantalla |
@@ -53,3 +54,7 @@ await pg.wait_for_function("gameData.paused === true", timeout=10000)
 
 Después de que el juego pausa, esperá ~400 ms antes de leer el DOM: el panel repinta como
 mucho cada 200 ms.
+
+Y si el escenario tiene gastos mayores al ingreso, dale monedas (`gameData.coins = 1e9`): al
+llegar a cero, `goBankrupt()` te devuelve a Homeless y vacía `currentMisc`, desarmando el
+escenario a mitad de la prueba.
