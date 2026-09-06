@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Progress Knight - Pausa automática por hitos
 // @namespace    https://github.com/agustingodoyc
-// @version      4.0
+// @version      4.1
 // @description  Pausa automática por hitos en Progress Knight con tick parcial exacto, ETA preciso y selección automática de Skill por el menor nivel que el juego te esté pidiendo en pantalla.
 // @author       Agustín
 // @match        https://ihtasham42.github.io/progress-knight/*
@@ -513,6 +513,70 @@
         }
     }
 
+    // Ticks hasta que el net/día alcance el umbral de un hito de Shop o de
+    // cantidad. El net no sube de a poco: pega un salto cada vez que el job sube de
+    // nivel, porque el ingreso es base * (1 + log10(nivel+1)) * multiplicadores. Es
+    // decir que el cruce SIEMPRE cae en un level-up, y entre uno y otro el net es
+    // constante. Así que se salta de level-up en level-up y se comprueba después de
+    // cada uno, avanzando también la skill actual, que puede empujar la xp del job,
+    // el ingreso (Strength en militar, Demon's wealth) o los gastos (Bargaining e
+    // Intimidation abaratan los items).
+    //
+    // El umbral se recalcula en cada tramo por lo mismo: si Bargaining sube, el
+    // producto se abarata y el objetivo se acerca solo.
+    //
+    // Devuelve Infinity si con este job no se llega (no hay ETA que mostrar), y
+    // null si directamente no se puede simular, para que el llamador use la media
+    // móvil de siempre.
+    const MAX_SALTOS_NET = 3000;
+
+    function ticksHastaNet(m) {
+        const g = W.gameData;
+        const cumple = () => {
+            const v = currentValue(m), t = threshold(m);
+            return v !== null && t !== null && v >= t;
+        };
+        if (cumple()) return 0;
+
+        const job = g.currentJob, skill = g.currentSkill;
+        if (!job && !skill) return null;
+        if (!(gameSpeed(true) / updateSpeed() > 0)) return null;
+
+        const nivelJob = job ? job.level : 0, nivelSkill = skill ? skill.level : 0;
+        let LJ = nivelJob, XJ = job ? job.xp : 0;
+        let LS = nivelSkill, XS = skill ? skill.xp : 0;
+        let ticks = 0;
+        try {
+            for (let saltos = 0; saltos < MAX_SALTOS_NET; saltos++) {
+                if (job) job.level = LJ;
+                if (skill) skill.level = LS;
+                const porTick = gameSpeed(true) / updateSpeed();
+                if (!(porTick > 0)) return null;
+
+                const gJ = job ? job.getXpGain() * porTick : 0;
+                const gS = skill ? skill.getXpGain() * porTick : 0;
+                const subeJob = gJ > 0 ? (maxXpAt(job, LJ) - XJ) / gJ : Infinity;
+                const subeSkill = gS > 0 ? (maxXpAt(skill, LS) - XS) / gS : Infinity;
+                const proximo = Math.min(subeJob, subeSkill);
+                if (!isFinite(proximo)) return Infinity;   // nada sube: no se llega
+
+                ticks += proximo;
+                if (gJ > 0) XJ += gJ * proximo;
+                if (gS > 0) XS += gS * proximo;
+                if (subeJob <= proximo) { LJ++; XJ = 0; }
+                if (subeSkill <= proximo) { LS++; XS = 0; }
+
+                if (job) job.level = LJ;
+                if (skill) skill.level = LS;
+                if (cumple()) return ticks;
+            }
+            return Infinity;
+        } finally {
+            if (job) job.level = nivelJob;
+            if (skill) skill.level = nivelSkill;
+        }
+    }
+
     function ticksToLevel(task, targetLevel, ignorePause) {
         if (task.level >= targetLevel) return 0;
         if (targetLevel - task.level > 10000) return null;
@@ -530,13 +594,20 @@
     }
 
     function ticksLeft(m) {
-        // Los hitos de nivel llevan la cuenta integrada; el resto, la tasa plana.
+        // Los hitos de nivel llevan la cuenta integrada nivel por nivel...
         if ((m.type === 'job' || m.type === 'skill') && m.field !== 'maxLevel') {
             const t = W.gameData.taskData[m.target];
             if (t) {
                 try { return ticksToLevel(t, m.value, true); }
                 catch (e) { console.warn('[Hitos] ticksToLevel:', e); }
             }
+        }
+        // ...y los de net/día, la simulación de level-ups.
+        if (m.type === 'net' || m.type === 'netval') {
+            try {
+                const t = ticksHastaNet(m);
+                if (t !== null) return t;
+            } catch (e) { console.warn('[Hitos] ticksHastaNet:', e); }
         }
         const f = forecast(m, true);
         if (f) {

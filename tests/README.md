@@ -37,6 +37,7 @@ por caso y un `TOTAL`.
 | `test_shop_niveles.py` | costo incremental de las Properties, nivel sugerido por requisitos |
 | `test_shop_boosts.py` | descuento de los boosts puntuales activos en el umbral del Shop |
 | `test_vitales.py` | cuenta de muerte, cuenta de saldo en cero y el freno antes de la quiebra |
+| `test_eta_net.py` | el ETA de los hitos de net/día contra el tiempo real |
 | `test_eta.py` | la predicción de tiempo contra lo que tarda de verdad, medido en ticks |
 | `test_ui.py` | que un click alcance para borrar mientras el panel se repinta |
 | `test_desbloqueos.py` | desbloqueos a través del rebirth y la sub-opción de filtrado |

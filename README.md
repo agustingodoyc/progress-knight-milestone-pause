@@ -38,6 +38,11 @@ Los valores aceptan `1000000`, `1M`, `2.5k` o `1e6`. Cada fila muestra el progre
 estimado; si el hito es de una tarea que no estás haciendo, el ETA dice *"si la activás"*,
 porque es una proyección con su xp/día actual y no una cuenta regresiva.
 
+Los ETA se calculan simulando, no proyectando la tasa de ahora. Para los hitos de net/día eso
+importa porque el net sube a saltos, uno por cada level-up del job: se avanza de level-up en
+level-up hasta cruzar el umbral, que además se mueve solo si Bargaining abarata el producto.
+Si con el job actual el objetivo no se alcanza, no se muestra ETA en lugar de inventar uno.
+
 Para los hitos de nivel el ETA se integra nivel por nivel, porque la xp/día cambia en el
 camino por dos motivos: hay skills que se potencian a sí mismas (Concentration se da "Skill
 xp" a sí misma, Meditation se acelera vía la felicidad), y la skill que estés haciendo puede
@@ -116,7 +121,7 @@ se los lleva.
 
 ## Pruebas
 
-122 pruebas end-to-end con Playwright sobre una copia local del juego: precisión del tick
+129 pruebas end-to-end con Playwright sobre una copia local del juego: precisión del tick
 parcial, umbrales del Shop, desbloqueos a través del rebirth, selección automática y
 comportamiento de la UI.
 

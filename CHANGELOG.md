@@ -4,6 +4,19 @@ Todo el desarrollo ocurrió en una sola sesión de trabajo, así que las version
 fecha. El salto de la 1.6 a la 3.2 es real: esa numeración vino de una tanda de cambios
 hecha aparte con Gemini (ver [docs/desarrollo.md](docs/desarrollo.md)).
 
+## 4.1
+
+- El ETA de los hitos de net/día —tanto por producto del Shop como por cantidad— se simula en
+  vez de estimarse con una media móvil. El net no crece de a poco: pega un salto cada vez que
+  el job sube de nivel, así que el cruce siempre cae en un level-up. Se salta de level-up en
+  level-up y se comprueba después de cada uno.
+- El umbral también se recalcula en cada tramo: si Bargaining o Intimidation suben, el producto
+  se abarata y el objetivo se acerca solo.
+- Si con el job actual el objetivo no se alcanza, no muestra ETA en vez de inventar uno.
+- Medido contra el reloj: 6s predichos contra 6,0s reales para "Wooden hut", y 16s contra 16,2s
+  para un net/día de 110. Y el número baja parejo (6, 6, 5, 5, 5, 4, 4, 4) en lugar de saltar
+  con cada level-up como hacía la media móvil.
+
 ## 4.0
 
 - Bloque nuevo en el panel con dos cuentas que no son hitos: **cuánto falta para morir** y,

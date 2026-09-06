@@ -84,10 +84,15 @@ Dos caminos según el tipo de hito:
   activarla significa dejar de hacer la otra.
 - **Analítico** para monedas y edad: se conoce la fórmula, así que sale directo de cuánto
   falta sobre cuánto rinde el tick.
-- **Media móvil** para net/día: no tiene fórmula cerrada, sube a saltos cuando el job sube de
-  nivel. Se mide la pendiente real con alpha 0,05 (unos 20 ticks de memoria) y no se muestra
-  nada hasta tener 20 muestras. Sin ese suavizado el número saltaba 199% entre lecturas; con
-  él, 35%.
+- **Simulado por level-ups** para net/día. Que suba a saltos, que al principio parecía el
+  problema, es en realidad la solución: entre un level-up y el siguiente el net es constante,
+  así que el cruce del umbral SIEMPRE cae en un level-up. Se salta de level-up en level-up
+  —del job y de la skill actual— y se comprueba después de cada uno. El umbral se recalcula en
+  cada tramo, porque Bargaining e Intimidation abaratan los items mientras suben, y eso acerca
+  el objetivo solo. Si con el job actual no se llega, no se muestra ETA en lugar de inventar
+  uno. Medido: 6s predichos contra 6,0s reales.
+- **Media móvil** como respaldo, para lo que no se puede simular. Se mide la pendiente con
+  alpha 0,05 (unos 20 ticks de memoria) y no se muestra nada hasta tener 20 muestras.
 
 El muestreo va **una vez por tick**, no al pintar el panel: si se hiciera al pintar, el "por
 tick" sería en realidad "por render" y el ETA saldría escalado por la diferencia de
