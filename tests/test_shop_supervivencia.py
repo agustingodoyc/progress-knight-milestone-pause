@@ -136,6 +136,27 @@ async def main():
         f = await fila(pg)
         ck("un Misc que ya tenés sigue dando por cumplido", "ya lo tenés" in f, f[:70])
 
+        # --- vaciarte después de muerto no es vaciarte ------------------------
+        # Grand palace es tan caro que el ingreso no lo alcanza nunca: lo único que
+        # puede dar por cumplido el hito es que la vida se acabe antes que la caja.
+        await fresh(pg, BASE + "gameData.coins = 1e9;")
+        await agregar(pg, "Grand palace")
+        await pg.wait_for_timeout(250)
+        lejos = await pg.evaluate("""({
+            hecho: JSON.parse(localStorage.getItem('pkHitos_v1')).milestones[0].done,
+            diasDeVida: Math.round(getLifespan() - gameData.days)})""")
+        ck("con vida por delante, un producto impagable no se cumple",
+           lejos['hecho'] is False, f"quedan {lejos['diasDeVida']} días de vida")
+
+        await fresh(pg, BASE + "gameData.coins = 1e9; gameData.days = getLifespan() - 50;")
+        await agregar(pg, "Grand palace")
+        await pg.wait_for_timeout(250)
+        cerca = await pg.evaluate("""({
+            hecho: JSON.parse(localStorage.getItem('pkHitos_v1')).milestones[0].done,
+            diasDeVida: Math.round(getLifespan() - gameData.days)})""")
+        ck("al final de la vida sí: no llegás a vaciarte",
+           cerca['hecho'] is True, f"quedan {cerca['diasDeVida']} días de vida")
+
         # --- rendimiento ------------------------------------------------------
         await fresh(pg, BASE + "gameData.coins = 200;")
         await pg.evaluate("gameData.paused = false; window.__d0 = gameData.days")

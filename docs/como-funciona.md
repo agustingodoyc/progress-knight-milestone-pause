@@ -128,7 +128,8 @@ devuelve a Homeless y te vacía `currentMisc`.
 Desde la v4.2 no es "el net alcanza el costo" sino "sobrevivís a la compra". Se simula
 comprándolo —la Property reemplaza a la actual, un Misc se suma, y en los dos casos se apagan
 los boosts puntuales— y se pregunta lo mismo que el cartel de arriba del panel: si el net
-queda en verde, o si queda en rojo pero el ingreso alcanza antes de vaciarte.
+queda en verde, o si queda en rojo pero aguantás. Aguantar es que el ingreso alcance antes de
+vaciarte o que la vida se acabe antes: vaciarte después de muerto no es vaciarte.
 
 Simular en vez de calcular importa más de lo que parece. La felicidad depende de la Property
 (`getHappiness` la incluye) y multiplica la xp de todas las tareas: comprar una casa mejor
@@ -191,6 +192,12 @@ vistos en vidas anteriores".
   que pide el siguiente (10).
 - **Shop.** El producto más barato que todavía no te bancás. Buscar el de costo más parecido
   al recién cumplido caía casi siempre en algo que ya podés pagar, y el hito nacía cumplido.
+
+## El panel
+
+Está anclado abajo a la derecha y crece hacia arriba, así que se topa en `calc(100vh - 28px)`
+con el cuerpo scrolleando: el encabezado nunca se va de la pantalla y siempre se puede plegar.
+Las ayudas largas viven en el `title` en lugar del cuerpo, para que explicar no cueste altura.
 
 ## Almacenamiento
 

@@ -58,9 +58,10 @@ todavía no te bancás.
 ### Cuándo se cumple un hito del Shop
 
 No cuando tu net/día alcanza el costo, sino cuando **sobrevivirías a la compra**: simulándola,
-o no quedás en rojo, o quedás en rojo pero el ingreso del job te alcanza antes de vaciarte. Es
-la misma condición que decide el cartel de arriba del panel, así que el hito salta justo
-cuando ese cartel pasaría a decir *"el ingreso lo alcanza antes de vaciarte"*.
+o no quedás en rojo, o quedás en rojo pero aguantás — porque el ingreso del job te alcanza
+antes de vaciarte, o porque directamente no llegás a vaciarte con la vida que te queda. Es la
+misma condición que decide el cartel de arriba del panel, así que el hito salta justo cuando
+ese cartel pasaría a decir *"el ingreso lo alcanza antes de vaciarte"*.
 
 La simulación evalúa el juego real bajo la compra, así que entra todo lo que cambia al
 comprar. Incluida la felicidad: una casa mejor multiplica la xp de **todas** las tareas, el job
@@ -135,7 +136,7 @@ se los lleva.
 
 ## Pruebas
 
-135 pruebas end-to-end con Playwright sobre una copia local del juego: precisión del tick
+139 pruebas end-to-end con Playwright sobre una copia local del juego: precisión del tick
 parcial, umbrales del Shop, desbloqueos a través del rebirth, selección automática y
 comportamiento de la UI.
 

@@ -4,6 +4,18 @@ Todo el desarrollo ocurrió en una sola sesión de trabajo, así que las version
 fecha. El salto de la 1.6 a la 3.2 es real: esa numeración vino de una tanda de cambios
 hecha aparte con Gemini (ver [docs/desarrollo.md](docs/desarrollo.md)).
 
+## 4.3
+
+- Un hito del Shop tambien cuenta como cumplido si **no llegas a vaciarte antes de morir**: el
+  rojo que no alcanza a pasarte factura no es un problema. Se pregunta dentro de la compra
+  simulada, porque comprar sube la felicidad y con ella la xp, y eso corre la fecha de la
+  muerte si tu skill actual es Immortality o Time warping.
+- El panel deja de crecer mas alla de la pantalla: se topa en `100vh` y el cuerpo scrollea, asi
+  que el encabezado queda siempre a mano para plegarlo. Antes, con varios hitos, se iba para
+  arriba y no habia forma de minimizarlo. De paso quedo todo un poco mas compacto.
+- La ayuda del formulario se acorto a una linea; el detalle largo paso al tooltip, asi que
+  explicar ya no agranda el panel.
+
 ## 4.2
 
 - **El hito de un producto del Shop cambia de condición.** Ya no se cumple cuando tu net/día

@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Progress Knight - Pausa automática por hitos
 // @namespace    https://github.com/agustingodoyc
-// @version      4.2
+// @version      4.3
 // @description  Pausa automática por hitos en Progress Knight con tick parcial exacto, ETA preciso y selección automática de Skill por el menor nivel que el juego te esté pidiendo en pantalla.
 // @author       Agustín
 // @match        https://ihtasham42.github.io/progress-knight/*
@@ -636,7 +636,14 @@
             if (W.gameData.coins <= 0) return false;
             if (!(gameSpeed(true) / updateSpeed() > 0)) return null;
             // null acá significa que el net se puso en verde antes de llegar a cero
-            return ticksHastaSaldoCero(TOPE_SUPERVIVENCIA) === null;
+            const aCero = ticksHastaSaldoCero(TOPE_SUPERVIVENCIA);
+            if (aCero === null) return true;
+            // Vaciarte después de muerto no es vaciarte: si la vida que te queda se
+            // acaba antes, el rojo no llega a pasarte factura. Se pregunta acá
+            // adentro a propósito, porque comprar sube la felicidad y con ella la xp,
+            // y eso corre la fecha si tu skill actual es Immortality o Time warping.
+            const aMorir = ticksHastaMorir();
+            return aMorir !== null && isFinite(aMorir) && aMorir <= aCero;
         });
     }
 
@@ -875,7 +882,8 @@
                     const aguante = conCompraSimulada(m.target, m.value || 1, () => {
                         const net = netPerDay();
                         if (net === null || net >= 0) return null;
-                        return fmtEta(ticksHastaSaldoCero(TOPE_SUPERVIVENCIA));
+                        const aCero = ticksHastaSaldoCero(TOPE_SUPERVIVENCIA);
+                        return aCero === null ? null : fmtEta(aCero);
                     });
                     if (aguante) txt += ` · comprándolo te vaciás en ~${aguante}`;
                 }
@@ -1127,25 +1135,30 @@
     const CSS = `
     #pkHitos {
         position: fixed; right: 14px; bottom: 14px; z-index: 99999;
-        width: 310px; font-family: system-ui, "Segoe UI", Arial, sans-serif;
+        width: 300px; font-family: system-ui, "Segoe UI", Arial, sans-serif;
         font-size: 12px; color: #eaeaea; background: #23262b;
         border: 1px solid #3a3f47; border-radius: 8px;
         box-shadow: 0 6px 24px rgba(0,0,0,.45); overflow: hidden;
+        /* El panel crece hacia arriba: sin este tope, con varios hitos el
+           encabezado se va de la pantalla y no se puede plegar. */
+        max-height: calc(100vh - 28px);
+        display: flex; flex-direction: column;
     }
     #pkHitos header {
         display: flex; align-items: center; justify-content: space-between;
         padding: 8px 10px; background: #2c3037; cursor: pointer; font-weight: 600;
+        flex: 0 0 auto;
     }
     #pkHitos header span.badge {
         background: #4c8bf5; color: #fff; border-radius: 10px;
         padding: 1px 7px; font-size: 11px; margin-left: 6px;
     }
-    #pkHitos .body { padding: 10px; }
+    #pkHitos .body { padding: 10px; overflow-y: auto; flex: 1 1 auto; min-height: 0; }
     #pkHitos.collapsed .body { display: none; }
     #pkHitos select, #pkHitos input[type=text] {
         width: 100%; box-sizing: border-box; background: #1b1e22; color: #eaeaea;
-        border: 1px solid #3a3f47; border-radius: 4px; padding: 5px 6px;
-        margin-bottom: 6px; font-size: 12px;
+        border: 1px solid #3a3f47; border-radius: 4px; padding: 4px 6px;
+        margin-bottom: 5px; font-size: 12px;
     }
     #pkHitos optgroup { color: #8b939e; font-style: normal; }
     #pkHitos option { color: #eaeaea; }
@@ -1156,7 +1169,7 @@
         border-radius: 4px; padding: 6px; cursor: pointer; font-weight: 600;
     }
     #pkHitos button.add:hover { background: #3f78d8; }
-    #pkHitos ul { list-style: none; margin: 10px 0 0; padding: 0; max-height: 210px; overflow-y: auto; }
+    #pkHitos ul { list-style: none; margin: 8px 0 0; padding: 0; max-height: 190px; overflow-y: auto; }
     #pkHitos li {
         display: flex; align-items: center; gap: 6px;
         padding: 5px 6px; border-radius: 4px; background: #1b1e22; margin-bottom: 4px;
@@ -1172,18 +1185,21 @@
     #pkHitos label.chk.sub { margin-left: 20px; font-size: 11px; color: #8b939e; }
     #pkHitos label.chk.sub.off { display: none; }
     #pkHitos label.chk {
-        display: flex; align-items: center; gap: 6px; margin: 6px 0; cursor: pointer; color: #c9ced6;
+        display: flex; align-items: center; gap: 6px; margin: 4px 0; cursor: pointer; color: #c9ced6;
     }
     #pkHitos .banner {
         background: #f5a623; color: #20232a; font-weight: 600;
         padding: 7px 9px; border-radius: 4px; margin-bottom: 8px;
         display: none; line-height: 1.35;
     }
-    #pkHitos .hint { color: #8b939e; font-size: 11px; margin: 2px 0 8px; }
+    #pkHitos .hint { color: #8b939e; font-size: 11px; margin: 2px 0 7px; }
+    /* La ayuda larga vive en el title: el panel no crece por explicar. */
+    #pkHitos .hint.masinfo { cursor: help; }
+    #pkHitos .hint.masinfo::after { content: ' ⓘ'; opacity: .8; }
     #pkHitos .status { color: #6f7681; font-size: 10px; margin-top: 8px; text-align: right; }
     #pkHitos .vitales {
-        margin-top: 10px; padding: 6px 8px; background: #1b1e22; border-radius: 4px;
-        color: #c9ced6; font-size: 11px; line-height: 1.5;
+        margin-top: 8px; padding: 5px 8px; background: #1b1e22; border-radius: 4px;
+        color: #c9ced6; font-size: 11px; line-height: 1.45;
     }
     #pkHitos .vitales:empty { display: none; }
     #pkHitos .vitales .rojo { color: #f0a05a; }
@@ -1375,10 +1391,24 @@
             age:   'Se compara contra la edad en años de la sidebar.',
             evil:  'El evil solo sube al renacer (rebirth 2), así que no lleva ETA.',
             netval:'Ingreso menos gastos por día. Ahora estás en ' + fmt(netPerDay()) + '.',
-            net:   'Pausa cuando podés bancar ese producto. Se descuenta lo que dejarías de pagar: la Property actual (comprar otra la reemplaza) y los boosts puntuales que tengas activos —Dumbbells, Steel longsword, Sapphire charm— que apagarías. Los que sirven siempre (Book, Study desk, Library, Personal squire, Butler) no se descuentan. Margen opcional: 1 = justo, 1.5 = 50% de colchón.',
+            net:   'Pausa cuando sobrevivirías a comprarlo. Margen: 1 = justo.',
             unlock:'Pausa la primera vez que ese elemento queda desbloqueado.'
         };
+        // El detalle no ocupa lugar: va en el title y se lee al pasar el mouse.
+        const detalles = {
+            net: 'Se cumple cuando, comprándolo, o no quedás en rojo, o quedás en rojo '
+               + 'pero el ingreso del job te alcanza antes de vaciarte (o te morís antes).\n\n'
+               + 'Del costo se descuenta lo que dejarías de pagar: la Property actual, '
+               + 'porque comprar otra la reemplaza, y los boosts puntuales que tengas '
+               + 'activos y apagarías (Dumbbells, Steel longsword, Sapphire charm). Los '
+               + 'que sirven siempre no se descuentan: Book, Study desk, Library, '
+               + 'Personal squire y Butler.\n\n'
+               + 'El margen encarece el producto a propósito: con 2, el hito exige que '
+               + 'sobrevivas a algo que cuesta el doble.'
+        };
         el.hint.textContent = hints[type] || '';
+        el.hint.title = detalles[type] || '';
+        el.hint.classList.toggle('masinfo', !!detalles[type]);
 
         applySuggestion();
 

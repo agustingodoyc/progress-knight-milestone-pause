@@ -101,6 +101,27 @@ async def main():
         cls = await pg.evaluate("document.querySelector('#pkHitos li').className")
         ck("el hito cumplido se marca y el juego pausa", "done" in cls, cls)
 
+        # --- el panel nunca tapa su propio encabezado -------------------------
+        await pg.set_viewport_size({"width": 1366, "height": 620})
+        await fresh(pg, "gameData.paused=false")
+        for t, val in (("coins", "1M"), ("age", "60"), ("evil", "50"),
+                       ("coins", "2M"), ("age", "65")):
+            await add(pg, t, None, None, val)
+        await pg.wait_for_timeout(400)
+        caja = await pg.evaluate("""(() => {
+            const r = document.querySelector('#pkHitos').getBoundingClientRect();
+            const h = document.querySelector('#pkHitos header').getBoundingClientRect();
+            return {alto: r.height, ventana: innerHeight, headerTop: h.top,
+                    headerVisible: h.top >= 0 && h.bottom <= innerHeight}; })()""")
+        ck("con cinco hitos el panel sigue entrando en la pantalla",
+           caja['alto'] <= caja['ventana'] and caja['headerVisible'],
+           f"alto {caja['alto']:.0f} en ventana de {caja['ventana']:.0f}, header en y={caja['headerTop']:.0f}")
+        await pg.click("#pkHitos header")
+        await pg.wait_for_timeout(200)
+        plegado = await pg.evaluate(
+            "document.querySelector('#pkHitos').classList.contains('collapsed')")
+        ck("y se puede plegar", plegado is True)
+
         await b.close()
     print("\n=== RESULTADOS ===")
     ok=True
