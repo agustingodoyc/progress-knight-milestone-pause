@@ -4,6 +4,24 @@ Todo el desarrollo ocurrió en una sola sesión de trabajo, así que las version
 fecha. El salto de la 1.6 a la 3.2 es real: esa numeración vino de una tanda de cambios
 hecha aparte con Gemini (ver [docs/desarrollo.md](docs/desarrollo.md)).
 
+## 4.2
+
+- **El hito de un producto del Shop cambia de condición.** Ya no se cumple cuando tu net/día
+  alcanza el costo, sino cuando *sobrevivirías a la compra*: simulándola, o no quedás en rojo,
+  o quedás en rojo pero el ingreso del job te alcanza antes de vaciarte. Es exactamente la
+  condición que decide el cartel de arriba del panel, así que el hito salta justo cuando ese
+  cartel pasaría a decir "el ingreso lo alcanza antes de vaciarte".
+- La simulación de la compra reemplaza la Property (o suma el Misc), apaga los boosts
+  puntuales y evalúa el juego real bajo esa configuración, así que entra todo lo que cambia al
+  comprar — incluida la felicidad: una casa mejor multiplica la xp de todas las tareas, el job
+  sube más rápido y el ingreso alcanza antes. Esa vuelta es fácil de pasar por alto haciendo
+  la cuenta a mano.
+- El margen dejó de multiplicar un umbral y ahora encarece el producto simulado, que es lo
+  mismo que pedir colchón: con margen 2 el hito exige sobrevivir a algo que cuesta el doble.
+- La fila muestra cuánto aguantarías si lo compraras hoy, que es el número que tiene que
+  crecer hasta "nunca" para que el hito salte.
+- El ETA persigue la condición nueva, y si con el job actual no se alcanza, no muestra ETA.
+
 ## 4.1
 
 - El ETA de los hitos de net/día —tanto por producto del Shop como por cantidad— se simula en

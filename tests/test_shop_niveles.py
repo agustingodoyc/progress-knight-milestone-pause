@@ -109,17 +109,17 @@ async def main():
         v7 = await pg.input_value("#pkValue")
         ck("Sugiere el menor requisito pendiente", v7 == "5", f"valor={v7!r} (Squire pide Strength 5)")
 
-        # ---------- regresión: sigue pausando ----------
-        await fresh(pg, "gameData.currentProperty = gameData.itemData['Tent']; gameData.coins = 1e9; gameData.paused=false")
+        # ---------- regresión: el umbral incremental se sigue aplicando -------
+        # (el disparo del hito pasó a depender de si sobrevivís a la compra; eso
+        # está en test_shop_supervivencia.py)
+        await fresh(pg, "gameData.currentProperty = gameData.itemData['Tent']; gameData.coins = 200; gameData.paused=true")
         await pg.select_option("#pkType","net"); await pg.select_option("#pkTarget","Wooden hut")
         await pg.fill("#pkValue",""); await pg.click("#pkAdd")
-        pend = await pg.evaluate("gameData.paused")
-        await pg.evaluate("gameData.taskData[gameData.currentJob.name].incomeMultipliers.push(() => 100000)")
-        await pg.wait_for_function("gameData.paused === true", timeout=8000)
-        net = await pg.evaluate("getIncome()-getExpense()")
+        await pg.wait_for_timeout(300)
+        fila = await pg.evaluate("document.querySelector('#pkList li').innerText.replace(/\\n/g,' ')")
         need = await pg.evaluate("gameData.itemData['Wooden hut'].getExpense() - gameData.itemData['Tent'].getExpense()")
-        ck("net vs property sigue pausando, con el umbral incremental",
-           pend == False and net >= need, f"net={net:.0f} ≥ Δ={need:.0f}")
+        ck("net vs property: el umbral sigue siendo el incremental",
+           "/ 85" in fila, f"Δ={need:.0f} · {fila[:70]}")
 
         await b.close()
     print("\n=== RESULTADOS ===")

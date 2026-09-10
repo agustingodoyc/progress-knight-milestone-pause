@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Progress Knight - Pausa automática por hitos
 // @namespace    https://github.com/agustingodoyc
-// @version      4.1
+// @version      4.2
 // @description  Pausa automática por hitos en Progress Knight con tick parcial exacto, ETA preciso y selección automática de Skill por el menor nivel que el juego te esté pidiendo en pantalla.
 // @author       Agustín
 // @match        https://ihtasham42.github.io/progress-knight/*
@@ -271,6 +271,13 @@
     }
 
     function isMet(m) {
+        if (m.type === 'net') {
+            const c = shopCost(m.target);
+            if (c && c.owned) return true;
+            const vivo = sobrevivisComprando(m.target, m.value || 1);
+            if (vivo !== null) return vivo;
+            // si no se pudo simular, la regla vieja: net actual contra el umbral
+        }
         const v = currentValue(m), t = threshold(m);
         return v !== null && t !== null && v >= t;
     }
@@ -473,7 +480,8 @@
     // (Bargaining abarata, Strength paga más en militar), así que se avanzan las dos
     // saltando de level-up en level-up. Devuelve null si el net se recupera antes:
     // en ese caso no vas a quebrar.
-    function ticksHastaSaldoCero() {
+    function ticksHastaSaldoCero(tope) {
+        const limite = tope || MAX_SALTOS;
         const g = W.gameData;
         if (g.coins <= 0) return 0;
         const job = g.currentJob, skill = g.currentSkill;
@@ -498,7 +506,7 @@
                 const subeSkill = gS > 0 ? (maxXpAt(skill, LS) - XS) / gS : Infinity;
                 const proximo = Math.min(subeJob, subeSkill);
 
-                if (proximo >= hastaCero || ++saltos > MAX_SALTOS) return ticks + hastaCero;
+                if (proximo >= hastaCero || ++saltos > limite) return ticks + hastaCero;
 
                 ticks += proximo;
                 coins += net * porTick * proximo;
@@ -529,13 +537,15 @@
     // null si directamente no se puede simular, para que el llamador use la media
     // móvil de siempre.
     const MAX_SALTOS_NET = 3000;
+    // Los hitos de Shop preguntan por la supervivencia, que cuesta una simulación
+    // anidada por cada level-up; se recorren menos tramos a propósito. Igual se
+    // cumplen mucho antes que el umbral estricto, así que alcanza de sobra.
+    const MAX_SALTOS_NET_SHOP = 300;
 
     function ticksHastaNet(m) {
         const g = W.gameData;
-        const cumple = () => {
-            const v = currentValue(m), t = threshold(m);
-            return v !== null && t !== null && v >= t;
-        };
+        const cumple = () => isMet(m);
+        const tope = m.type === 'net' ? MAX_SALTOS_NET_SHOP : MAX_SALTOS_NET;
         if (cumple()) return 0;
 
         const job = g.currentJob, skill = g.currentSkill;
@@ -547,7 +557,7 @@
         let LS = nivelSkill, XS = skill ? skill.xp : 0;
         let ticks = 0;
         try {
-            for (let saltos = 0; saltos < MAX_SALTOS_NET; saltos++) {
+            for (let saltos = 0; saltos < tope; saltos++) {
                 if (job) job.level = LJ;
                 if (skill) skill.level = LS;
                 const porTick = gameSpeed(true) / updateSpeed();
@@ -575,6 +585,59 @@
             if (job) job.level = nivelJob;
             if (skill) skill.level = nivelSkill;
         }
+    }
+
+    // Corre `fn` como si el producto ya estuviera comprado: la Property reemplaza a
+    // la actual, un Misc se suma, y en los dos casos se apagan los boosts puntuales
+    // (los mismos que descuenta shopCost). El margen encarece el producto a
+    // propósito, que es lo que significa pedir colchón: sobrevivir a algo un 50%
+    // más caro. Se restaura todo en el finally.
+    function conCompraSimulada(name, margen, fn) {
+        const g = W.gameData;
+        const it = g.itemData[name];
+        if (!it) return null;
+
+        const propReal = g.currentProperty, miscReal = g.currentMisc;
+        const teniaPropio = Object.prototype.hasOwnProperty.call(it, 'getExpense');
+        const gastoPropio = teniaPropio ? it.getExpense : null;
+        try {
+            if (margen && margen !== 1) {
+                const base = it.getExpense.bind(it);
+                it.getExpense = () => base() * margen;
+            }
+            const conservados = (miscReal || []).filter(x => x && !esMiscPuntual(x.name));
+            if (isPropertyName(name)) {
+                g.currentProperty = it;
+                g.currentMisc = conservados;
+            } else {
+                g.currentMisc = conservados.concat(conservados.includes(it) ? [] : [it]);
+            }
+            return fn();
+        } catch (e) {
+            return null;
+        } finally {
+            g.currentProperty = propReal;
+            g.currentMisc = miscReal;
+            if (teniaPropio) it.getExpense = gastoPropio; else delete it.getExpense;
+        }
+    }
+
+    // ¿Comprarlo ahora te deja de pie? Dos formas de que sí: que ni siquiera quedes
+    // en rojo, o que quedes en rojo pero el ingreso del job te alcance antes de
+    // vaciarte — exactamente lo que dice el cartel de arriba del panel.
+    // null = no se pudo determinar.
+    const TOPE_SUPERVIVENCIA = 500;
+
+    function sobrevivisComprando(name, margen) {
+        return conCompraSimulada(name, margen, () => {
+            const net = netPerDay();
+            if (net === null) return null;
+            if (net >= 0) return true;                  // ni siquiera quedás en rojo
+            if (W.gameData.coins <= 0) return false;
+            if (!(gameSpeed(true) / updateSpeed() > 0)) return null;
+            // null acá significa que el net se puso en verde antes de llegar a cero
+            return ticksHastaSaldoCero(TOPE_SUPERVIVENCIA) === null;
+        });
     }
 
     function ticksToLevel(task, targetLevel, ignorePause) {
@@ -806,6 +869,16 @@
                 if (c.property && c.current > 0) partes.push(`−${fmt(c.current)} de ${c.currentName}`);
                 if (c.dropped?.total > 0) partes.push(`−${fmt(c.dropped.total)} de ${c.dropped.names.join(', ')}`);
                 if (partes.length) txt += ` (${fmt(c.cost)} ${partes.join(' ')})`;
+                // Lo que decide el hito no es el umbral sino si sobrevivís a la
+                // compra, así que se muestra cuánto aguantarías comprándolo hoy.
+                if (!m.done) {
+                    const aguante = conCompraSimulada(m.target, m.value || 1, () => {
+                        const net = netPerDay();
+                        if (net === null || net >= 0) return null;
+                        return fmtEta(ticksHastaSaldoCero(TOPE_SUPERVIVENCIA));
+                    });
+                    if (aguante) txt += ` · comprándolo te vaciás en ~${aguante}`;
+                }
             }
         }
         if (!m.done) {

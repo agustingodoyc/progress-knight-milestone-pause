@@ -35,6 +35,7 @@ por caso y un `TOTAL`.
 | `test_tipos.py` | jobs y skills separados, agrupación por categoría, net vs producto |
 | `test_precision.py` | tick parcial: nivel, monedas y edad exactos, contra el mismo escenario sin él |
 | `test_shop_niveles.py` | costo incremental de las Properties, nivel sugerido por requisitos |
+| `test_shop_supervivencia.py` | que el hito del Shop se cumpla cuando sobrevivirías a la compra |
 | `test_shop_boosts.py` | descuento de los boosts puntuales activos en el umbral del Shop |
 | `test_vitales.py` | cuenta de muerte, cuenta de saldo en cero y el freno antes de la quiebra |
 | `test_eta_net.py` | el ETA de los hitos de net/día contra el tiempo real |

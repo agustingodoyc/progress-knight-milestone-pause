@@ -123,6 +123,25 @@ escala un épsilon por debajo para garantizar NO cruzarlo. La diferencia importa
 `applyExpenses()` llama a `goBankrupt()` en cuanto las monedas quedan negativas, y eso te
 devuelve a Homeless y te vacía `currentMisc`.
 
+## La condición de los hitos del Shop
+
+Desde la v4.2 no es "el net alcanza el costo" sino "sobrevivís a la compra". Se simula
+comprándolo —la Property reemplaza a la actual, un Misc se suma, y en los dos casos se apagan
+los boosts puntuales— y se pregunta lo mismo que el cartel de arriba del panel: si el net
+queda en verde, o si queda en rojo pero el ingreso alcanza antes de vaciarte.
+
+Simular en vez de calcular importa más de lo que parece. La felicidad depende de la Property
+(`getHappiness` la incluye) y multiplica la xp de todas las tareas: comprar una casa mejor
+hace que el job suba más rápido y que el ingreso alcance antes. Haciendo la cuenta a mano eso
+se pasa por alto; evaluando el `getXpGain()` real bajo la compra, entra solo.
+
+El margen encarece el producto simulado en vez de multiplicar un umbral, que es la forma
+natural de pedir colchón: sobrevivir a algo que cuesta el doble.
+
+La simulación anidada (supervivencia dentro de cada tramo del ETA) lleva topes propios más
+chicos, porque la condición se cumple mucho antes que el umbral estricto y no hace falta
+recorrer miles de level-ups.
+
 ## Costo real en el Shop
 
 El umbral es lo que te falta de verdad: el precio del producto menos todo lo que dejarías de

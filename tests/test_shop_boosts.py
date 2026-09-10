@@ -99,29 +99,20 @@ async def main():
         fila = await umbral(pg, "Large house")
         ck("sin boosts activos no cambia nada", "/ 24.3k" in fila, fila[:80])
 
-        # y el hito pausa con el umbral nuevo, no con el precio de lista
+        # El descuento sigue siendo el que se ve arriba, pero desde la v4.2 el hito
+        # no se dispara al alcanzar ese umbral sino cuando sobrevivirías a la compra:
+        # eso se prueba en test_shop_supervivencia.py. Acá solo se comprueba que el
+        # umbral que se muestra, con el que se calcula el desglose, sea el correcto.
         await fresh(pg, """
           gameData.currentProperty = gameData.itemData['Tent'];
           gameData.currentMisc = [gameData.itemData['Dumbbells']];
-          gameData.currentJob = gameData.taskData['Beggar'];
-          gameData.coins = 1e9;
+          gameData.coins = 200;
         """)
-        # con monedas de sobra: si el net queda en rojo y las monedas llegan a 0,
-        # goBankrupt() te saca la property y los misc, y el escenario se desarma
-        await pg.evaluate("gameData.paused = false")
-        await umbral(pg, "Wooden hut")
-        # se pisa getIncome() para manejar el ingreso a mano: con multiplicadores el
-        # nivel del job sigue creciendo solo y el net cruza el umbral de un salto
-        await pg.evaluate("window.__income = 96; window.getIncome = () => window.__income;")
-        await pg.wait_for_timeout(900)
-        casi = await pg.evaluate("({paused: gameData.paused, net: getIncome() - getExpense()})")
-        ck("con el net por debajo del umbral no pausa",
-           casi['paused'] is False and casi['net'] < 35, f"net={casi['net']:.1f}")
-        await pg.evaluate("window.__income = 130")               # net = 65
-        await pg.wait_for_function("gameData.paused === true", timeout=8000)
-        net = await pg.evaluate("getIncome() - getExpense()")
-        ck("pausa con el umbral descontado, sin esperar al precio de lista",
-           35 <= net < 100, f"net={net:.1f} (umbral 35, precio de lista 100)")
+        fila = await umbral(pg, "Wooden hut")
+        pendiente = await pg.evaluate(
+            "JSON.parse(localStorage.getItem('pkHitos_v1')).milestones[0].done")
+        ck("con poca caja el hito queda pendiente y muestra el umbral con descuento",
+           pendiente is False and "/ 35" in fila, fila[:80])
 
         await b.close()
     _pk.report(R, errs)

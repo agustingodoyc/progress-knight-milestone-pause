@@ -31,7 +31,7 @@ El script declara `@updateURL`, así que Tampermonkey busca versiones nuevas sol
 | **Edad (años)** | cumplís esa edad |
 | **Evil** | el evil alcanza el valor |
 | **Net/día ≥ cantidad** | ingreso menos gastos por día alcanza el valor (acepta negativos) |
-| **Net/día ≥ producto del Shop** | podés bancar ese producto |
+| **Net/día ≥ producto del Shop** | sobrevivirías a comprarlo (ver abajo) |
 | **Desbloqueo puntual** | ese job, skill o item queda desbloqueado |
 
 Los valores aceptan `1000000`, `1M`, `2.5k` o `1e6`. Cada fila muestra el progreso y un ETA
@@ -54,6 +54,20 @@ Al cumplirse un hito, el formulario queda precargado con el siguiente objetivo r
 skills, la que tenga el menor nivel pendiente **entre los requisitos que el juego te está
 mostrando**; para jobs, el más barato en nivel 0; para el Shop, el producto más barato que
 todavía no te bancás.
+
+### Cuándo se cumple un hito del Shop
+
+No cuando tu net/día alcanza el costo, sino cuando **sobrevivirías a la compra**: simulándola,
+o no quedás en rojo, o quedás en rojo pero el ingreso del job te alcanza antes de vaciarte. Es
+la misma condición que decide el cartel de arriba del panel, así que el hito salta justo
+cuando ese cartel pasaría a decir *"el ingreso lo alcanza antes de vaciarte"*.
+
+La simulación evalúa el juego real bajo la compra, así que entra todo lo que cambia al
+comprar. Incluida la felicidad: una casa mejor multiplica la xp de **todas** las tareas, el job
+sube más rápido y el ingreso alcanza antes de lo que sugeriría una cuenta a mano.
+
+El margen ya no multiplica un umbral: encarece el producto simulado. Con margen 2 el hito
+exige que sobrevivas a algo que cuesta el doble.
 
 ### Costo real en el Shop
 
@@ -121,7 +135,7 @@ se los lleva.
 
 ## Pruebas
 
-129 pruebas end-to-end con Playwright sobre una copia local del juego: precisión del tick
+135 pruebas end-to-end con Playwright sobre una copia local del juego: precisión del tick
 parcial, umbrales del Shop, desbloqueos a través del rebirth, selección automática y
 comportamiento de la UI.
 
