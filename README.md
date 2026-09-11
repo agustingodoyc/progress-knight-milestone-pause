@@ -72,20 +72,15 @@ exige que sobrevivas a algo que cuesta el doble.
 
 ### Costo real en el Shop
 
-El umbral no es el precio de lista, sino lo que te falta de verdad: se descuenta todo lo que
-dejarías de pagar.
+Del costo solo se descuenta **la Property actual**: `gameData.currentProperty` es una sola,
+comprar otra reemplaza la anterior, y el net/día ya viene con ese gasto descontado. Con una
+Cottage puesta, "Large house" pide 24,3k y no 25k, y el panel muestra la cuenta hecha.
 
-- **La Property actual.** `gameData.currentProperty` es una sola, comprar otra reemplaza la
-  anterior, y el net/día ya viene con ese gasto descontado.
-- **Los boosts puntuales que tengas activos.** Dumbbells (Strength xp), Steel longsword
-  (Military xp) y Sapphire charm (Magic xp) potencian una rama concreta y los apagás cuando
-  cambiás de foco. Los que sirven hagas lo que hagas —Book, Study desk y Library (Skill xp),
-  Personal squire (Job xp) y Butler (Happiness)— no se descuentan.
-
-Con una Tent y unas Dumbbells puestas, "Wooden hut" pide 35 y no 100: `100 − 15 − 50`. El
-panel muestra la cuenta hecha. Es lo mismo que pedir que el net **después** de comprarlo y
-apagar esos boosts siga siendo positivo. Los Misc, que se acumulan, no descuentan la Property,
-y valen cero si ya los tenés.
+**Los Misc que tengas puestos no se descuentan**: se acumulan, así que son parte de lo que vas
+a seguir pagando. Y a veces conviene tenerlos — un Dumbbells cuesta 50/día pero acelera
+Strength, que multiplica la paga militar, así que con runway largo aguantás *más* teniéndolo
+puesto (medido: 4991 ticks contra 4926, con una House y 2M de monedas). Un Misc que ya tenés
+comprado vale cero.
 
 El margen opcional multiplica el umbral: `1` es justo, `1.5` deja 50% de colchón.
 
@@ -136,7 +131,7 @@ se los lleva.
 
 ## Pruebas
 
-139 pruebas end-to-end con Playwright sobre una copia local del juego: precisión del tick
+141 pruebas end-to-end con Playwright sobre una copia local del juego: precisión del tick
 parcial, umbrales del Shop, desbloqueos a través del rebirth, selección automática y
 comportamiento de la UI.
 

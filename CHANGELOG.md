@@ -4,6 +4,17 @@ Todo el desarrollo ocurrió en una sola sesión de trabajo, así que las version
 fecha. El salto de la 1.6 a la 3.2 es real: esa numeración vino de una tanda de cambios
 hecha aparte con Gemini (ver [docs/desarrollo.md](docs/desarrollo.md)).
 
+## 4.4
+
+- **Los Misc que tenés puestos dejan de descontarse.** Cuando el hito medía "¿me alcanza el
+  net?" tenía sentido suponer que al comprar algo apagarías los boosts puntuales. Desde que la
+  pregunta es cuánto aguantás, hay que contar lo que realmente vas a seguir pagando: ahora la
+  compra simulada conserva todos los Misc activos y el umbral solo descuenta la Property.
+- Y encima a veces conviene tenerlos puestos: un Dumbbells cuesta 50/día pero acelera Strength,
+  que multiplica la paga militar. Medido con una House y 2M de monedas, aguantás **4991 ticks
+  con Dumbbells contra 4926 sin ellas**; con 10M, 35189 contra 33044.
+- La Property sigue reemplazándose, porque no se pueden tener dos.
+
 ## 4.3
 
 - Un hito del Shop tambien cuenta como cumplido si **no llegas a vaciarte antes de morir**: el

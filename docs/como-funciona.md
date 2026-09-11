@@ -145,22 +145,18 @@ recorrer miles de level-ups.
 
 ## Costo real en el Shop
 
-El umbral es lo que te falta de verdad: el precio del producto menos todo lo que dejarías de
-pagar al comprarlo.
+El umbral es el precio del producto menos lo único que dejarías de pagar con seguridad: la
+Property actual, porque `gameData.currentProperty` es una sola y comprar otra reemplaza la
+anterior. Los Misc se acumulan (`currentMisc` es un array), así que van al precio entero, y a
+cero si ya los tenés.
 
-`gameData.currentProperty` es una sola, así que comprar otra reemplaza la anterior y su gasto
-se descuenta —y el net/día ya viene con él restado—. Los Misc se acumulan (`currentMisc` es un
-array), así que ahí no hay reemplazo: van al precio entero, y a cero si ya los tenés.
-
-Además se descuentan los **boosts puntuales activos**, los que potencian una rama concreta y
-uno apaga al cambiar de foco. El juego no los marca como tales, pero los describe: en
-`itemBaseData`, Dumbbells dice "Strength xp", Steel longsword "Military xp" y Sapphire charm
-"Magic xp", mientras que los que sirven siempre dicen "Skill xp", "Job xp" o "Happiness". El
-script trata como puntual cualquier descripción fuera de esas tres, así que un item nuevo de
-rama específica entra solo.
-
-Con Tent y Dumbbells puestos, "Wooden hut" pide `100 − 15 − 50 = 35`. La cuenta se muestra
-armada en la fila del hito.
+Los Misc que tengas puestos **no** se descuentan ni se apagan en la compra simulada. Cuando el
+hito medía "¿me alcanza el net?" tenía sentido suponer que ibas a apagar los boosts puntuales,
+pero desde que la pregunta es cuánto aguantás hay que contar lo que realmente vas a seguir
+pagando. Y la suposición era mala de todos modos: un Dumbbells cuesta 50/día pero acelera
+Strength, que multiplica la paga militar, así que con runway largo aguantás más teniéndolo
+puesto — 4991 ticks contra 4926 con una House y 2M de monedas. Simular en vez de suponer vuelve
+a pagar.
 
 El umbral se recalcula en cada tick, así que acompaña los descuentos de Bargaining e
 Intimidation y cualquier cambio en lo que tengas equipado.

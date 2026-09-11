@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Progress Knight - Pausa automática por hitos
 // @namespace    https://github.com/agustingodoyc
-// @version      4.3
+// @version      4.4
 // @description  Pausa automática por hitos en Progress Knight con tick parcial exacto, ETA preciso y selección automática de Skill por el menor nivel que el juego te esté pidiendo en pantalla.
 // @author       Agustín
 // @match        https://ihtasham42.github.io/progress-knight/*
@@ -133,47 +133,28 @@
         return !(!it?.baseData || ('description' in it.baseData));
     }
 
-    // Los Misc que potencian una rama concreta no se tienen prendidos siempre: al
-    // comprar otra cosa los apagás. Los que sirven hagas lo que hagas, no.
-    // El juego no marca la diferencia, pero la describe: itemBaseData trae
-    // "Strength xp", "Military xp", "Magic xp" para los puntuales, y "Skill xp",
-    // "Job xp" o "Happiness" para los que valen siempre. Cualquier descripción
-    // nueva se considera puntual, que es el caso más común.
-    const BOOSTS_PERMANENTES = ['Skill xp', 'Job xp', 'Happiness'];
-
-    function esMiscPuntual(name) {
-        if (isPropertyName(name)) return false;
-        const it = W.gameData?.itemData?.[name];
-        const d = it?.baseData?.description;
-        return !!d && !BOOSTS_PERMANENTES.includes(d);
-    }
-
-    // Gasto diario de los boosts puntuales que tenés activos y darías de baja.
-    function miscDescartables(excludeName) {
-        const activos = W.gameData?.currentMisc || [];
-        let total = 0;
-        const names = [];
-        for (const it of activos) {
-            if (!it?.name || it.name === excludeName || !esMiscPuntual(it.name)) continue;
-            total += typeof it.getExpense === 'function' ? it.getExpense() : 0;
-            names.push(it.name);
-        }
-        return { total, names };
-    }
+    // Los Misc NO se descuentan. Cuando el hito medía "¿me alcanza el net?" tenía
+    // sentido suponer que ibas a apagar los boosts puntuales al comprar otra cosa,
+    // pero ahora la pregunta es cuánto aguantás, y para eso hay que contar lo que
+    // realmente vas a estar pagando. Y no siempre conviene apagarlos: un Dumbbells
+    // cuesta 50/día pero acelera Strength, que multiplica la paga militar, así que
+    // con runway largo aguantás MÁS teniéndolo puesto (medido: 4991 ticks contra
+    // 4926 con una House y 2M de monedas).
+    //
+    // La Property es el único caso que sí se reemplaza, porque no podés tener dos.
 
     function shopCost(name) {
         const g = W.gameData;
         const cost = itemExpense(name);
         if (cost === null) return null;
-        const drop = miscDescartables(name);
         if (isPropertyName(name)) {
             const cur = typeof g.currentProperty?.getExpense === 'function' ? g.currentProperty.getExpense() : 0;
-            return { delta: cost - cur - drop.total, cost, current: cur,
-                     currentName: g.currentProperty?.name ?? null, property: true, dropped: drop };
+            return { delta: cost - cur, cost, current: cur,
+                     currentName: g.currentProperty?.name ?? null, property: true };
         }
         const owned = (g.currentMisc || []).some(x => x?.name === name);
-        return { delta: owned ? 0 : cost - drop.total, cost, current: 0, currentName: null,
-                 property: false, owned, dropped: drop };
+        return { delta: owned ? 0 : cost, cost, current: 0, currentName: null,
+                 property: false, owned };
     }
 
     function isUnlocked(name) {
@@ -588,10 +569,10 @@
     }
 
     // Corre `fn` como si el producto ya estuviera comprado: la Property reemplaza a
-    // la actual, un Misc se suma, y en los dos casos se apagan los boosts puntuales
-    // (los mismos que descuenta shopCost). El margen encarece el producto a
-    // propósito, que es lo que significa pedir colchón: sobrevivir a algo un 50%
-    // más caro. Se restaura todo en el finally.
+    // la actual —no se pueden tener dos— y un Misc se suma a los que ya tenés, que
+    // se conservan tal cual: son parte de lo que vas a seguir pagando. El margen
+    // encarece el producto a propósito, que es lo que significa pedir colchón:
+    // sobrevivir a algo un 50% más caro. Se restaura todo en el finally.
     function conCompraSimulada(name, margen, fn) {
         const g = W.gameData;
         const it = g.itemData[name];
@@ -605,12 +586,11 @@
                 const base = it.getExpense.bind(it);
                 it.getExpense = () => base() * margen;
             }
-            const conservados = (miscReal || []).filter(x => x && !esMiscPuntual(x.name));
+            const actuales = (miscReal || []).filter(Boolean);
             if (isPropertyName(name)) {
                 g.currentProperty = it;
-                g.currentMisc = conservados;
-            } else {
-                g.currentMisc = conservados.concat(conservados.includes(it) ? [] : [it]);
+            } else if (!actuales.includes(it)) {
+                g.currentMisc = actuales.concat([it]);
             }
             return fn();
         } catch (e) {
@@ -874,7 +854,6 @@
             } else if (c) {
                 const partes = [];
                 if (c.property && c.current > 0) partes.push(`−${fmt(c.current)} de ${c.currentName}`);
-                if (c.dropped?.total > 0) partes.push(`−${fmt(c.dropped.total)} de ${c.dropped.names.join(', ')}`);
                 if (partes.length) txt += ` (${fmt(c.cost)} ${partes.join(' ')})`;
                 // Lo que decide el hito no es el umbral sino si sobrevivís a la
                 // compra, así que se muestra cuánto aguantarías comprándolo hoy.
@@ -1398,11 +1377,10 @@
         const detalles = {
             net: 'Se cumple cuando, comprándolo, o no quedás en rojo, o quedás en rojo '
                + 'pero el ingreso del job te alcanza antes de vaciarte (o te morís antes).\n\n'
-               + 'Del costo se descuenta lo que dejarías de pagar: la Property actual, '
-               + 'porque comprar otra la reemplaza, y los boosts puntuales que tengas '
-               + 'activos y apagarías (Dumbbells, Steel longsword, Sapphire charm). Los '
-               + 'que sirven siempre no se descuentan: Book, Study desk, Library, '
-               + 'Personal squire y Butler.\n\n'
+               + 'Del costo solo se descuenta la Property actual, porque comprar otra la '
+               + 'reemplaza. Los Misc que tengas puestos se conservan: son parte de lo '
+               + 'que vas a seguir pagando, y a veces conviene tenerlos (un Dumbbells '
+               + 'acelera Strength, que paga más en militar).\n\n'
                + 'El margen encarece el producto a propósito: con 2, el hito exige que '
                + 'sobrevivas a algo que cuesta el doble.'
         };
